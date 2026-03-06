@@ -27,6 +27,13 @@ import { OrgChart } from "./pages/OrgChart";
 import { AuthPage } from "./pages/Auth";
 import { BoardClaimPage } from "./pages/BoardClaim";
 import { InviteLandingPage } from "./pages/InviteLanding";
+import { CrmContacts } from "./pages/crm/CrmContacts";
+import { CrmCompanies } from "./pages/crm/CrmCompanies";
+import { CrmDeals } from "./pages/crm/CrmDeals";
+import { CrmInvoices } from "./pages/crm/CrmInvoices";
+import { CrmQuotes } from "./pages/crm/CrmQuotes";
+import { CrmProducts } from "./pages/crm/CrmProducts";
+import { CrmPipeline } from "./pages/crm/CrmPipeline";
 import { queryKeys } from "./lib/queryKeys";
 import { useCompany } from "./context/CompanyContext";
 import { useDialog } from "./context/DialogContext";
@@ -128,6 +135,14 @@ function boardRoutes() {
       <Route path="inbox/new" element={<Inbox />} />
       <Route path="inbox/all" element={<Inbox />} />
       <Route path="design-guide" element={<DesignGuide />} />
+      <Route path="crm" element={<Navigate to="/crm/contacts" replace />} />
+      <Route path="crm/contacts" element={<CrmContacts />} />
+      <Route path="crm/companies" element={<CrmCompanies />} />
+      <Route path="crm/deals" element={<CrmDeals />} />
+      <Route path="crm/invoices" element={<CrmInvoices />} />
+      <Route path="crm/quotes" element={<CrmQuotes />} />
+      <Route path="crm/products" element={<CrmProducts />} />
+      <Route path="crm/pipeline" element={<CrmPipeline />} />
     </>
   );
 }

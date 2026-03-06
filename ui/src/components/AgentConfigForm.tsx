@@ -290,6 +290,16 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
   });
   const models = fetchedModels ?? externalModels ?? [];
 
+  // Fetch adapter models for the fallback adapter type (edit mode only)
+  const fallbackAdapterType = !isCreate
+    ? String(config.fallbackAdapterType ?? "")
+    : "";
+  const { data: fallbackModels } = useQuery({
+    queryKey: ["adapter-models", fallbackAdapterType],
+    queryFn: () => agentsApi.adapterModels(fallbackAdapterType),
+    enabled: !!fallbackAdapterType,
+  });
+
   /** Props passed to adapter-specific config field components */
   const adapterFieldProps = {
     mode,
@@ -308,6 +318,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
   // Popover states
   const [modelOpen, setModelOpen] = useState(false);
   const [thinkingEffortOpen, setThinkingEffortOpen] = useState(false);
+  const [fallbackModelOpen, setFallbackModelOpen] = useState(false);
 
   // Create mode helpers
   const val = isCreate ? props.values : null;
@@ -869,70 +880,76 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
               <select
                 className={inputClass}
                 value={eff("adapterConfig", "fallbackAdapterType", String(config.fallbackAdapterType ?? ""))}
-                onChange={(e) => mark("adapterConfig", "fallbackAdapterType", e.target.value || undefined)}
+                onChange={(e) => {
+                  mark("adapterConfig", "fallbackAdapterType", e.target.value || undefined);
+                  // Reset fallback config when adapter type changes
+                  if (!e.target.value) {
+                    mark("adapterConfig", "fallbackAdapterConfig", undefined);
+                  }
+                }}
               >
                 <option value="">None (disabled)</option>
                 {ADAPTER_DISPLAY_LIST
-                  .filter((a) => !a.comingSoon && a.value !== adapterType)
+                  .filter((a) => !a.comingSoon)
                   .map((a) => (
                     <option key={a.value} value={a.value}>{a.label}</option>
                   ))}
               </select>
             </Field>
-            {eff("adapterConfig", "fallbackAdapterType", String(config.fallbackAdapterType ?? "")) && (
-              <>
-                <Field label="Fallback command" hint="CLI command for the fallback adapter (e.g. claude, codex, gemini)">
-                  <DraftInput
-                    value={(() => {
-                      const fbConfig = eff(
-                        "adapterConfig",
-                        "fallbackAdapterConfig",
-                        (config.fallbackAdapterConfig ?? {}) as Record<string, unknown>,
-                      );
-                      return String((typeof fbConfig === "object" && fbConfig !== null ? (fbConfig as Record<string, unknown>).command : "") ?? "");
-                    })()}
-                    onCommit={(v) => {
-                      const existing = eff(
-                        "adapterConfig",
-                        "fallbackAdapterConfig",
-                        (config.fallbackAdapterConfig ?? {}) as Record<string, unknown>,
-                      );
-                      const base = typeof existing === "object" && existing !== null ? existing as Record<string, unknown> : {};
-                      mark("adapterConfig", "fallbackAdapterConfig", { ...base, command: v || undefined });
-                    }}
-                    immediate
-                    className={inputClass}
-                    placeholder="e.g. claude"
+            {eff("adapterConfig", "fallbackAdapterType", String(config.fallbackAdapterType ?? "")) && (() => {
+              // Helper to read/write fallbackAdapterConfig
+              const getFbConfig = (): Record<string, unknown> => {
+                const raw = eff(
+                  "adapterConfig",
+                  "fallbackAdapterConfig",
+                  (config.fallbackAdapterConfig ?? {}) as Record<string, unknown>,
+                );
+                return typeof raw === "object" && raw !== null ? raw as Record<string, unknown> : {};
+              };
+              const setFbField = (field: string, value: unknown) => {
+                mark("adapterConfig", "fallbackAdapterConfig", { ...getFbConfig(), [field]: value });
+              };
+              const fbConfig = getFbConfig();
+              const fbType = eff("adapterConfig", "fallbackAdapterType", String(config.fallbackAdapterType ?? ""));
+              const commandPlaceholder =
+                fbType === "codex_local" ? "codex"
+                : fbType === "cursor" ? "agent"
+                : fbType === "opencode_local" ? "opencode"
+                : fbType === "gemini_local" ? "gemini"
+                : "claude";
+
+              return (
+                <>
+                  <Field label="Fallback command" hint={`CLI command for the fallback adapter (e.g. ${commandPlaceholder})`}>
+                    <DraftInput
+                      value={String(fbConfig.command ?? "")}
+                      onCommit={(v) => setFbField("command", v || undefined)}
+                      immediate
+                      className={inputClass}
+                      placeholder={commandPlaceholder}
+                    />
+                  </Field>
+
+                  <ModelDropdown
+                    models={fallbackModels ?? []}
+                    value={String(fbConfig.model ?? "")}
+                    onChange={(v) => setFbField("model", v || undefined)}
+                    open={fallbackModelOpen}
+                    onOpenChange={setFallbackModelOpen}
                   />
-                </Field>
-                <ToggleField
-                  label="Skip permissions (YOLO mode)"
-                  hint="Run fallback adapter without approval prompts"
-                  checked={(() => {
-                    const fbConfig = eff(
-                      "adapterConfig",
-                      "fallbackAdapterConfig",
-                      (config.fallbackAdapterConfig ?? {}) as Record<string, unknown>,
-                    );
-                    const cfg = typeof fbConfig === "object" && fbConfig !== null ? fbConfig as Record<string, unknown> : {};
-                    return Boolean(cfg.dangerouslySkipPermissions ?? cfg.dangerouslyBypassApprovalsAndSandbox ?? false);
-                  })()}
-                  onChange={(v) => {
-                    const existing = eff(
-                      "adapterConfig",
-                      "fallbackAdapterConfig",
-                      (config.fallbackAdapterConfig ?? {}) as Record<string, unknown>,
-                    );
-                    const base = typeof existing === "object" && existing !== null ? existing as Record<string, unknown> : {};
-                    mark("adapterConfig", "fallbackAdapterConfig", {
-                      ...base,
-                      dangerouslySkipPermissions: v || undefined,
-                      dangerouslyBypassApprovalsAndSandbox: v || undefined,
-                    });
-                  }}
-                />
-              </>
-            )}
+
+                  <ToggleField
+                    label="Skip permissions (YOLO mode)"
+                    hint="Run fallback adapter without approval prompts"
+                    checked={Boolean(fbConfig.dangerouslySkipPermissions ?? fbConfig.dangerouslyBypassApprovalsAndSandbox ?? false)}
+                    onChange={(v) => {
+                      setFbField("dangerouslySkipPermissions", v || undefined);
+                      setFbField("dangerouslyBypassApprovalsAndSandbox", v || undefined);
+                    }}
+                  />
+                </>
+              );
+            })()}
           </div>
         </div>
       )}

@@ -126,6 +126,15 @@ export const PROJECT_COLORS = [
   "#3b82f6", // blue
 ] as const;
 
+export const CRM_DEAL_STATUSES = ["lead", "qualified", "proposal", "negotiation", "won", "lost"] as const;
+export type CrmDealStatus = (typeof CRM_DEAL_STATUSES)[number];
+
+export const CRM_INVOICE_STATUSES = ["draft", "sent", "paid", "overdue", "cancelled"] as const;
+export type CrmInvoiceStatus = (typeof CRM_INVOICE_STATUSES)[number];
+
+export const CRM_QUOTE_STATUSES = ["draft", "sent", "accepted", "rejected", "expired"] as const;
+export type CrmQuoteStatus = (typeof CRM_QUOTE_STATUSES)[number];
+
 export const APPROVAL_TYPES = ["hire_agent", "approve_ceo_strategy"] as const;
 export type ApprovalType = (typeof APPROVAL_TYPES)[number];
 
@@ -220,5 +229,6 @@ export const PERMISSION_KEYS = [
   "tasks:assign",
   "tasks:assign_scope",
   "joins:approve",
+  "crm:access",
 ] as const;
 export type PermissionKey = (typeof PERMISSION_KEYS)[number];
