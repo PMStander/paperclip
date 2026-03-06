@@ -32,7 +32,6 @@ const geminiLocalCLIAdapter: CLIAdapterModule = {
   type: "gemini_local",
   formatStdoutEvent: printGeminiStreamEvent,
 };
-};
 
 const openclawCLIAdapter: CLIAdapterModule = {
   type: "openclaw",

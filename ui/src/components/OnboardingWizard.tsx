@@ -160,7 +160,6 @@ export function OnboardingWizard() {
     enabled: onboardingOpen && step === 2
   });
   const isLocalAdapter =
-  const isLocalAdapter =
     adapterType === "claude_local" || adapterType === "codex_local" || adapterType === "gemini_local" || adapterType === "opencode_local" || adapterType === "cursor";
   const effectiveAdapterCommand =
     command.trim() ||
@@ -228,9 +227,6 @@ export function OnboardingWizard() {
       ...defaultCreateValues,
       adapterType,
       cwd,
-      model:
-        adapterType === "codex_local"
-          ? model || DEFAULT_CODEX_LOCAL_MODEL
       model:
         adapterType === "codex_local"
           ? model || DEFAULT_CODEX_LOCAL_MODEL
@@ -685,14 +681,7 @@ export function OnboardingWizard() {
                   </div>
 
                   {/* Conditional adapter fields */}
-<<<<<<< Updated upstream
-                  {(adapterType === "claude_local" ||
-                    adapterType === "codex_local" ||
-                    adapterType === "opencode_local" ||
-                    adapterType === "cursor") && (
-=======
                   {isLocalAdapter && (
->>>>>>> Stashed changes
                     <div className="space-y-3">
                       <div>
                         <div className="flex items-center gap-1.5 mb-1">

@@ -93,7 +93,6 @@ const geminiLocalAdapter: ServerAdapterModule = {
   supportsLocalAgentJwt: true,
   agentConfigurationDoc: geminiAgentConfigurationDoc,
 };
-};
 
 const openclawAdapter: ServerAdapterModule = {
   type: "openclaw",

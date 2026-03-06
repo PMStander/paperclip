@@ -94,7 +94,6 @@ const ISSUE_THINKING_EFFORT_OPTIONS = {
   gemini_local: [
     { value: "", label: "Default" },
   ],
-  ],
 } as const;
 
 function buildAssigneeAdapterOverrides(input: {
