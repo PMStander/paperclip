@@ -67,7 +67,7 @@ interface IssueDraft {
   assigneeUseProjectWorkspace: boolean;
 }
 
-const ISSUE_OVERRIDE_ADAPTER_TYPES = new Set(["claude_local", "codex_local", "opencode_local"]);
+const ISSUE_OVERRIDE_ADAPTER_TYPES = new Set(["claude_local", "codex_local", "gemini_local", "opencode_local"]);
 
 const ISSUE_THINKING_EFFORT_OPTIONS = {
   claude_local: [
@@ -90,6 +90,10 @@ const ISSUE_THINKING_EFFORT_OPTIONS = {
     { value: "medium", label: "Medium" },
     { value: "high", label: "High" },
     { value: "max", label: "Max" },
+  ],
+  gemini_local: [
+    { value: "", label: "Default" },
+  ],
   ],
 } as const;
 
@@ -363,6 +367,8 @@ export function NewIssueDialog() {
         ? ISSUE_THINKING_EFFORT_OPTIONS.codex_local
         : assigneeAdapterType === "opencode_local"
           ? ISSUE_THINKING_EFFORT_OPTIONS.opencode_local
+        : assigneeAdapterType === "gemini_local"
+        ? ISSUE_THINKING_EFFORT_OPTIONS.gemini_local
         : ISSUE_THINKING_EFFORT_OPTIONS.claude_local;
     if (!validThinkingValues.some((option) => option.value === assigneeThinkingEffort)) {
       setAssigneeThinkingEffort("");
@@ -465,13 +471,17 @@ export function NewIssueDialog() {
         ? "Codex options"
         : assigneeAdapterType === "opencode_local"
           ? "OpenCode options"
-        : "Agent options";
+        : assigneeAdapterType === "gemini_local"
+          ? "Gemini options"
+          : "Agent options";
   const thinkingEffortOptions =
     assigneeAdapterType === "codex_local"
       ? ISSUE_THINKING_EFFORT_OPTIONS.codex_local
       : assigneeAdapterType === "opencode_local"
         ? ISSUE_THINKING_EFFORT_OPTIONS.opencode_local
-      : ISSUE_THINKING_EFFORT_OPTIONS.claude_local;
+      : assigneeAdapterType === "gemini_local"
+        ? ISSUE_THINKING_EFFORT_OPTIONS.gemini_local
+        : ISSUE_THINKING_EFFORT_OPTIONS.claude_local;
   const assigneeOptions = useMemo<InlineEntityOption[]>(
     () =>
       (agents ?? [])

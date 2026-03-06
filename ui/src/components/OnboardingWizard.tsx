@@ -25,6 +25,10 @@ import {
 } from "@paperclipai/adapter-codex-local";
 import { DEFAULT_CURSOR_LOCAL_MODEL } from "@paperclipai/adapter-cursor-local";
 import { DEFAULT_OPENCODE_LOCAL_MODEL } from "@paperclipai/adapter-opencode-local";
+import {
+  DEFAULT_GEMINI_LOCAL_BYPASS_APPROVALS_AND_SANDBOX,
+  DEFAULT_GEMINI_LOCAL_MODEL
+} from "@paperclipai/adapter-gemini-local";
 import { AsciiArtAnimation } from "./AsciiArtAnimation";
 import { ChoosePathButton } from "./PathInstructionsModal";
 import { HintIcon } from "./agent-config-primitives";
@@ -52,6 +56,7 @@ type AdapterType =
   | "claude_local"
   | "codex_local"
   | "opencode_local"
+  | "gemini_local"
   | "cursor"
   | "process"
   | "http"
@@ -155,7 +160,8 @@ export function OnboardingWizard() {
     enabled: onboardingOpen && step === 2
   });
   const isLocalAdapter =
-    adapterType === "claude_local" || adapterType === "codex_local" || adapterType === "opencode_local" || adapterType === "cursor";
+  const isLocalAdapter =
+    adapterType === "claude_local" || adapterType === "codex_local" || adapterType === "gemini_local" || adapterType === "opencode_local" || adapterType === "cursor";
   const effectiveAdapterCommand =
     command.trim() ||
     (adapterType === "codex_local"
@@ -164,6 +170,8 @@ export function OnboardingWizard() {
         ? "agent"
       : adapterType === "opencode_local"
         ? "opencode"
+      : adapterType === "gemini_local"
+        ? "gemini"
         : "claude");
 
   useEffect(() => {
@@ -223,10 +231,15 @@ export function OnboardingWizard() {
       model:
         adapterType === "codex_local"
           ? model || DEFAULT_CODEX_LOCAL_MODEL
+      model:
+        adapterType === "codex_local"
+          ? model || DEFAULT_CODEX_LOCAL_MODEL
           : adapterType === "cursor"
             ? model || DEFAULT_CURSOR_LOCAL_MODEL
           : adapterType === "opencode_local"
             ? model || DEFAULT_OPENCODE_LOCAL_MODEL
+          : adapterType === "gemini_local"
+            ? model || DEFAULT_GEMINI_LOCAL_MODEL
           : model,
       command,
       args,
@@ -235,7 +248,9 @@ export function OnboardingWizard() {
       dangerouslyBypassSandbox:
         adapterType === "codex_local"
           ? DEFAULT_CODEX_LOCAL_BYPASS_APPROVALS_AND_SANDBOX
-          : defaultCreateValues.dangerouslyBypassSandbox
+          : adapterType === "gemini_local"
+            ? DEFAULT_GEMINI_LOCAL_BYPASS_APPROVALS_AND_SANDBOX
+            : defaultCreateValues.dangerouslyBypassSandbox
     });
     if (adapterType === "claude_local" && forceUnsetAnthropicApiKey) {
       const env =
@@ -594,6 +609,12 @@ export function OnboardingWizard() {
                           desc: "Local OpenCode agent"
                         },
                         {
+                          value: "gemini_local" as const,
+                          label: "Gemini CLI",
+                          icon: Terminal,
+                          desc: "Local Gemini agent"
+                        },
+                        {
                           value: "openclaw" as const,
                           label: "OpenClaw",
                           icon: Bot,
@@ -643,6 +664,9 @@ export function OnboardingWizard() {
                             } else if (nextType === "opencode_local" && !model) {
                               setModel(DEFAULT_OPENCODE_LOCAL_MODEL);
                             }
+                            if (nextType === "gemini_local" && !model) {
+                              setModel(DEFAULT_GEMINI_LOCAL_MODEL);
+                            }
                           }}
                         >
                           {opt.recommended && (
@@ -661,10 +685,14 @@ export function OnboardingWizard() {
                   </div>
 
                   {/* Conditional adapter fields */}
+<<<<<<< Updated upstream
                   {(adapterType === "claude_local" ||
                     adapterType === "codex_local" ||
                     adapterType === "opencode_local" ||
                     adapterType === "cursor") && (
+=======
+                  {isLocalAdapter && (
+>>>>>>> Stashed changes
                     <div className="space-y-3">
                       <div>
                         <div className="flex items-center gap-1.5 mb-1">

@@ -18,6 +18,10 @@ import {
 import { DEFAULT_CURSOR_LOCAL_MODEL } from "@paperclipai/adapter-cursor-local";
 import { DEFAULT_OPENCODE_LOCAL_MODEL } from "@paperclipai/adapter-opencode-local";
 import {
+  DEFAULT_GEMINI_LOCAL_BYPASS_APPROVALS_AND_SANDBOX,
+  DEFAULT_GEMINI_LOCAL_MODEL,
+} from "@paperclipai/adapter-gemini-local";
+import {
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -274,6 +278,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
   const isLocal =
     adapterType === "claude_local" ||
     adapterType === "codex_local" ||
+    adapterType === "gemini_local" ||
     adapterType === "opencode_local" ||
     adapterType === "cursor";
   const uiAdapter = useMemo(() => getUIAdapter(adapterType), [adapterType]);
@@ -485,6 +490,11 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
                   } else if (t === "opencode_local") {
                     nextValues.model = DEFAULT_OPENCODE_LOCAL_MODEL;
                   }
+                  if (t === "gemini_local") {
+                    nextValues.model = DEFAULT_GEMINI_LOCAL_MODEL;
+                    nextValues.dangerouslyBypassSandbox =
+                      DEFAULT_GEMINI_LOCAL_BYPASS_APPROVALS_AND_SANDBOX;
+                  }
                   set!(nextValues);
                 } else {
                   // Clear all adapter config and explicitly blank out model + effort/mode keys
@@ -500,6 +510,8 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
                             ? DEFAULT_CURSOR_LOCAL_MODEL
                           : t === "opencode_local"
                             ? DEFAULT_OPENCODE_LOCAL_MODEL
+                          : t === "gemini_local"
+                            ? DEFAULT_GEMINI_LOCAL_MODEL
                             : "",
                       effort: "",
                       modelReasoningEffort: "",
@@ -509,6 +521,11 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
                         ? {
                             dangerouslyBypassApprovalsAndSandbox:
                               DEFAULT_CODEX_LOCAL_BYPASS_APPROVALS_AND_SANDBOX,
+                          }
+                        : t === "gemini_local"
+                        ? {
+                            dangerouslyBypassApprovalsAndSandbox:
+                              DEFAULT_GEMINI_LOCAL_BYPASS_APPROVALS_AND_SANDBOX,
                           }
                         : {}),
                     },
@@ -607,6 +624,8 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
                         ? "agent"
                       : adapterType === "opencode_local"
                         ? "opencode"
+                      : adapterType === "gemini_local"
+                        ? "gemini"
                         : "claude"
                   }
                 />
@@ -876,7 +895,7 @@ function AdapterEnvironmentResult({ result }: { result: AdapterEnvironmentTestRe
 
 /* ---- Internal sub-components ---- */
 
-const ENABLED_ADAPTER_TYPES = new Set(["claude_local", "codex_local", "opencode_local", "cursor"]);
+const ENABLED_ADAPTER_TYPES = new Set(["claude_local", "codex_local", "gemini_local", "opencode_local", "cursor"]);
 
 /** Display list includes all real adapter types plus UI-only coming-soon entries. */
 const ADAPTER_DISPLAY_LIST: { value: string; label: string; comingSoon: boolean }[] = [
