@@ -1,7 +1,5 @@
 import { useState } from "react";
-import { useLocation } from "@/lib/router";
 import { ChevronRight, Users, Building2, Handshake, FileText, FileCheck, Package, Kanban } from "lucide-react";
-import { useSidebar } from "../context/SidebarContext";
 import { cn } from "../lib/utils";
 import { SidebarNavItem } from "./SidebarNavItem";
 import {
@@ -22,9 +20,6 @@ const CRM_NAV_ITEMS = [
 
 export function SidebarCrm() {
   const [open, setOpen] = useState(true);
-  const location = useLocation();
-
-  const isActive = location.pathname.includes("/crm");
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
