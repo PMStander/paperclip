@@ -1,4 +1,11 @@
 // ---------------------------------------------------------------------------
+// Well-known adapter error codes
+// ---------------------------------------------------------------------------
+
+/** Returned by adapters when the upstream provider rejects the request due to quota / rate limits. */
+export const ADAPTER_ERROR_QUOTA_EXHAUSTED = "quota_exhausted";
+
+// ---------------------------------------------------------------------------
 // Minimal adapter-facing interfaces (no drizzle dependency)
 // ---------------------------------------------------------------------------
 

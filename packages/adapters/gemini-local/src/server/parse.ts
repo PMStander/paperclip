@@ -71,3 +71,29 @@ export function isGeminiUnknownSessionError(stdout: string, stderr: string): boo
     haystack,
   );
 }
+
+export function isGeminiQuotaError(stdout: string, stderr: string): boolean {
+  const haystack = `${stdout}\n${stderr}`;
+  return /TerminalQuotaError|reason:\s*'?QUOTA_EXHAUSTED'?/i.test(haystack);
+}
+
+/**
+ * Attempt to parse the quota reset delay from Gemini CLI error output.
+ * Returns the delay in milliseconds, or null if not parseable.
+ */
+export function parseQuotaResetMs(stderr: string): number | null {
+  // Match "Your quota will reset after Xh Ym Zs." or "retryDelayMs: 12345"
+  const resetMatch = stderr.match(/quota will reset after\s+(?:(\d+)h)?(\d+)m(\d+)s/i);
+  if (resetMatch) {
+    const hours = parseInt(resetMatch[1] ?? "0", 10);
+    const minutes = parseInt(resetMatch[2], 10);
+    const seconds = parseInt(resetMatch[3], 10);
+    return (hours * 3600 + minutes * 60 + seconds) * 1000;
+  }
+  const retryMatch = stderr.match(/retryDelayMs:\s*([\d.]+)/);
+  if (retryMatch) {
+    const ms = parseFloat(retryMatch[1]);
+    if (Number.isFinite(ms) && ms > 0) return Math.round(ms);
+  }
+  return null;
+}

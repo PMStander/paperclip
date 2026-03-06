@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { AdapterExecutionContext, AdapterExecutionResult } from "@paperclipai/adapter-utils";
+import { ADAPTER_ERROR_QUOTA_EXHAUSTED } from "@paperclipai/adapter-utils";
 import {
   asString,
   asNumber,
@@ -17,7 +18,7 @@ import {
   renderTemplate,
   runChildProcess,
 } from "@paperclipai/adapter-utils/server-utils";
-import { parseGeminiJsonl, isGeminiUnknownSessionError } from "./parse.js";
+import { parseGeminiJsonl, isGeminiUnknownSessionError, isGeminiQuotaError, parseQuotaResetMs } from "./parse.js";
 
 const __moduleDir = path.dirname(fileURLToPath(import.meta.url));
 const PAPERCLIP_SKILLS_CANDIDATES = [
@@ -130,8 +131,8 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const workspaceRepoRef = asString(workspaceContext.repoRef, "");
   const workspaceHints = Array.isArray(context.paperclipWorkspaces)
     ? context.paperclipWorkspaces.filter(
-        (value): value is Record<string, unknown> => typeof value === "object" && value !== null,
-      )
+      (value): value is Record<string, unknown> => typeof value === "object" && value !== null,
+    )
     : [];
   const configuredCwd = asString(config.cwd, "");
   const useConfiguredInsteadOfAgentHome = workspaceSource === "agent_home" && configuredCwd.length > 0;
@@ -281,10 +282,10 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
 
   const buildArgs = (resumeSessionId: string | null) => {
     const args = ["--output-format", "stream-json"];
-    
+
     // Always allow reading from the gemini home directory so skills can be loaded
     args.push("--include-directories", geminiHomeDir());
-    
+
     if (bypass) {
       args.push("--approval-mode", "yolo");
       args.push("--include-directories", "/");
@@ -293,14 +294,14 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       // But we respect the bypass flag.
       args.push("--approval-mode", "auto_edit");
     }
-    
+
     if (model) args.push("--model", model);
     if (extraArgs.length > 0) args.push(...extraArgs);
     if (resumeSessionId) args.push("--resume", resumeSessionId);
-    
+
     // Accept prompt on stdin instead of args.
     args.push("-");
-    
+
     return args;
   };
 
@@ -380,6 +381,11 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       stderrLine ||
       `Gemini exited with code ${attempt.proc.exitCode ?? -1}`;
 
+    const isQuota =
+      (attempt.proc.exitCode ?? 0) !== 0 &&
+      isGeminiQuotaError(attempt.proc.stdout, attempt.proc.stderr);
+    const quotaResetMs = isQuota ? parseQuotaResetMs(attempt.proc.stderr) : null;
+
     return {
       exitCode: attempt.proc.exitCode,
       signal: attempt.proc.signal,
@@ -388,6 +394,10 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
         (attempt.proc.exitCode ?? 0) === 0
           ? null
           : fallbackErrorMessage,
+      errorCode: isQuota ? ADAPTER_ERROR_QUOTA_EXHAUSTED : undefined,
+      errorMeta: isQuota
+        ? { ...(quotaResetMs != null ? { retryAfterMs: quotaResetMs } : {}) }
+        : undefined,
       usage: attempt.parsed.usage,
       sessionId: resolvedSessionId,
       sessionParams: resolvedSessionParams,

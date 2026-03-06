@@ -1,3 +1,4 @@
+export { ADAPTER_ERROR_QUOTA_EXHAUSTED } from "./types.js";
 export type {
   AdapterAgent,
   AdapterRuntime,

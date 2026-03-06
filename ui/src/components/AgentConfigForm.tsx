@@ -854,6 +854,89 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
         </div>
       )}
 
+      {/* ---- Fallback Adapter (edit-only, local adapters) ---- */}
+      {!isCreate && isLocal && (
+        <div className={cn(!cards && "border-b border-border")}>
+          {cards
+            ? <h3 className="text-sm font-medium mb-3">Fallback Adapter</h3>
+            : <div className="px-4 py-2 text-xs font-medium text-muted-foreground">Fallback Adapter</div>
+          }
+          <div className={cn(cards ? "border border-border rounded-lg p-4 space-y-3" : "px-4 pb-3 space-y-3")}>
+            <p className="text-xs text-muted-foreground">
+              When the primary adapter fails due to quota exhaustion, the system will automatically retry with the fallback adapter.
+            </p>
+            <Field label="Fallback adapter type" hint="The adapter to use when the primary adapter's quota is exhausted">
+              <select
+                className={inputClass}
+                value={eff("adapterConfig", "fallbackAdapterType", String(config.fallbackAdapterType ?? ""))}
+                onChange={(e) => mark("adapterConfig", "fallbackAdapterType", e.target.value || undefined)}
+              >
+                <option value="">None (disabled)</option>
+                {ADAPTER_DISPLAY_LIST
+                  .filter((a) => !a.comingSoon && a.value !== adapterType)
+                  .map((a) => (
+                    <option key={a.value} value={a.value}>{a.label}</option>
+                  ))}
+              </select>
+            </Field>
+            {eff("adapterConfig", "fallbackAdapterType", String(config.fallbackAdapterType ?? "")) && (
+              <>
+                <Field label="Fallback command" hint="CLI command for the fallback adapter (e.g. claude, codex, gemini)">
+                  <DraftInput
+                    value={(() => {
+                      const fbConfig = eff(
+                        "adapterConfig",
+                        "fallbackAdapterConfig",
+                        (config.fallbackAdapterConfig ?? {}) as Record<string, unknown>,
+                      );
+                      return String((typeof fbConfig === "object" && fbConfig !== null ? (fbConfig as Record<string, unknown>).command : "") ?? "");
+                    })()}
+                    onCommit={(v) => {
+                      const existing = eff(
+                        "adapterConfig",
+                        "fallbackAdapterConfig",
+                        (config.fallbackAdapterConfig ?? {}) as Record<string, unknown>,
+                      );
+                      const base = typeof existing === "object" && existing !== null ? existing as Record<string, unknown> : {};
+                      mark("adapterConfig", "fallbackAdapterConfig", { ...base, command: v || undefined });
+                    }}
+                    immediate
+                    className={inputClass}
+                    placeholder="e.g. claude"
+                  />
+                </Field>
+                <ToggleField
+                  label="Skip permissions (YOLO mode)"
+                  hint="Run fallback adapter without approval prompts"
+                  checked={(() => {
+                    const fbConfig = eff(
+                      "adapterConfig",
+                      "fallbackAdapterConfig",
+                      (config.fallbackAdapterConfig ?? {}) as Record<string, unknown>,
+                    );
+                    const cfg = typeof fbConfig === "object" && fbConfig !== null ? fbConfig as Record<string, unknown> : {};
+                    return Boolean(cfg.dangerouslySkipPermissions ?? cfg.dangerouslyBypassApprovalsAndSandbox ?? false);
+                  })()}
+                  onChange={(v) => {
+                    const existing = eff(
+                      "adapterConfig",
+                      "fallbackAdapterConfig",
+                      (config.fallbackAdapterConfig ?? {}) as Record<string, unknown>,
+                    );
+                    const base = typeof existing === "object" && existing !== null ? existing as Record<string, unknown> : {};
+                    mark("adapterConfig", "fallbackAdapterConfig", {
+                      ...base,
+                      dangerouslySkipPermissions: v || undefined,
+                      dangerouslyBypassApprovalsAndSandbox: v || undefined,
+                    });
+                  }}
+                />
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
