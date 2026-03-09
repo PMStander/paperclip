@@ -18,7 +18,7 @@ import { useSidebar } from "../context/SidebarContext";
 import { authApi } from "../api/auth";
 import { projectsApi } from "../api/projects";
 import { queryKeys } from "../lib/queryKeys";
-import { cn, projectRouteRef } from "../lib/utils";
+import { cn, projectRouteRef, projectUrl } from "../lib/utils";
 import { useProjectOrder } from "../hooks/useProjectOrder";
 import {
   Collapsible,
@@ -62,7 +62,7 @@ function SortableProjectItem({
       {...listeners}
     >
       <NavLink
-        to={`/projects/${routeRef}/issues`}
+        to={projectUrl(project)}
         onClick={() => {
           if (isMobile) setSidebarOpen(false);
         }}

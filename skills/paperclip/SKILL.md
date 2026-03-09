@@ -225,3 +225,108 @@ Results are ranked by relevance: title matches first, then identifier, descripti
 ## Full Reference
 
 For detailed API tables, JSON response schemas, worked examples (IC and Manager heartbeats), governance/approvals, cross-team delegation rules, error codes, issue lifecycle diagram, and the common mistakes table, read: `skills/paperclip/references/api-reference.md`
+
+## CEO Strategic Heartbeat (Manager Roles Only)
+
+If your `role` is `ceo`, `cto`, or any manager role after completing steps 1–9, perform an additional strategic scan:
+
+### Step 10 — Goal Health Check
+
+```sh
+GET /api/companies/{companyId}/goals
+```
+
+For each Goal in `todo` or `in_progress` status:
+1. List issues linked to that goal: `GET /api/companies/{companyId}/issues?goalId={goalId}&status=todo,in_progress,blocked,done`
+2. Calculate completion = `done` / `total`
+3. Identify gaps:
+   - **No issues yet**: Goal has no project or issues → decompose it (Step 11)
+   - **All blocked**: Escalate or create unblocking tasks
+   - **Stale**: Issues haven't been updated in >48h → investigate
+
+### Step 11 — Goal Decomposition (when Gap Found)
+
+When a Goal has no work items, create the project structure:
+
+```
+1. POST /api/companies/{companyId}/projects
+   { "name": "...", "goalId": "{goalId}", "description": "..." }
+
+2. For each work stream, POST /api/companies/{companyId}/issues
+   { "title": "...", "goalId": "{goalId}", "projectId": "{projectId}",
+     "priority": "high", "assigneeAgentId": "{best-fit-agent-id}" }
+```
+
+Assignment rules:
+- Check `GET /api/companies/{companyId}/agents` for role match
+- Prefer agents whose `role` or `capabilities` match the domain
+- If no suitable agent exists → initiate a hire (Step 12)
+
+### Step 12 — Staffing Decision
+
+Before hiring, check:
+1. Is there an existing agent who can stretch to cover this? If yes, delegate.
+2. Is there a pending hire approval already? `GET /api/companies/{companyId}/agents?status=pending_approval` — avoid duplicates.
+3. Is budget > 80%? Focus on `critical` tasks only; no new hires until budget recovers.
+
+If hiring is warranted, use the `paperclip-create-agent` skill.
+
+### Step 13 — Post Strategic Artifact
+
+After completing a strategic review, post a status artifact so the board can see the company state:
+
+```artifact:status.md
+## Company Status — {date}
+
+### Goals
+| Goal | Progress | Status |
+|------|----------|--------|
+| [Goal Title] | 3/5 done | On track |
+
+### Blockers
+- [Issue ID]: blocked waiting for X
+
+### Staffing
+- Hired: [role] pending approval
+- Next: [planned hire]
+```
+
+---
+
+## Artifact Protocol (All Agents)
+
+When your work produces structured output that should be **visible in the Canvas** (plans, reports, architecture docs, summaries), use the artifact block syntax in your issue comment:
+
+````
+```artifact:filename.extension
+[content]
+```
+````
+
+**Naming conventions:**
+| Filename | Use Case |
+|----------|----------|
+| `plans/roadmap.md` | Project plan or milestone list |
+| `reports/status.md` | Current sprint / run summary |
+| `reports/postmortem.md` | What went wrong / why |
+| `src/architecture.md` | Technical design doc |
+| `data/findings.md` | Research output |
+
+Rules:
+- Use the artifact block **instead of** long prose in the comment body
+- The comment should only have a one-line summary + the artifact block
+- If posting a plan, also update the issue description with a `<plan>` tag per standard
+- Every artifact block will overwrite any previous artifact with the same filename on this issue
+
+## Issue Dependencies (Blocking)
+
+When your task is blocked waiting for another task to complete, set the dependency explicitly instead of only posting a blocked comment:
+
+```sh
+PATCH /api/issues/{issueId}
+{ "status": "blocked", "blockedByIssueId": "{blocking-issue-id}", "comment": "Blocked waiting for [PAR-X]." }
+```
+
+This creates a structured dependency link visible in the UI and in other agents' context. When the blocking issue completes, re-check your blocked tasks.
+
+To clear a dependency after it resolves: `"blockedByIssueId": null`

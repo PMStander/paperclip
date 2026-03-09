@@ -80,6 +80,154 @@ function escapeLikePattern(value: string): string {
   return value.replace(/[\\%_]/g, "\\$&");
 }
 
+type AgentAssignmentCandidate = {
+  id: string;
+  name: string;
+  role: string | null;
+  title: string | null;
+  capabilities: string | null;
+  status: string | null;
+};
+
+type LineageDefaults = {
+  projectId: string | null;
+  goalId: string | null;
+  assigneeAgentId: string | null;
+};
+
+const ASSIGNMENT_STOPWORDS = new Set([
+  "a", "an", "and", "are", "as", "at", "be", "by", "for", "from", "how", "in", "into", "is", "it",
+  "of", "on", "or", "our", "the", "their", "this", "to", "with", "your",
+]);
+
+const AUTHOR_HINTS = ["author", "publisher", "book", "kdp", "manuscript", "outline", "draft", "proofread", "cover", "interior", "format"];
+const CMO_HINTS = ["marketing", "launch", "publish", "listing", "keyword", "audience", "branding", "promotion", "seo", "category", "content", "youtube"];
+const VIDEO_HINTS = ["youtube", "video", "production", "record", "editing", "edit", "voiceover", "thumbnail", "script", "broll"];
+const MOBILE_HINTS = ["mobile", "app", "ios", "android", "store", "beta", "authentication", "polish"];
+const WEB_HINTS = ["web", "website", "landing", "browser", "site", "seo", "accessibility", "a11y"];
+
+function normalizeAssignmentToken(value: string): string | null {
+  const lower = value.toLowerCase().replace(/[^a-z0-9]+/g, "").trim();
+  if (lower.length < 3 || ASSIGNMENT_STOPWORDS.has(lower)) return null;
+  if (lower.endsWith("ies") && lower.length > 4) return `${lower.slice(0, -3)}y`;
+  if (lower.endsWith("ing") && lower.length > 5) return lower.slice(0, -3);
+  if (lower.endsWith("ed") && lower.length > 4) return lower.slice(0, -2);
+  if (lower.endsWith("es") && lower.length > 4) return lower.slice(0, -2);
+  if (lower.endsWith("s") && lower.length > 4) return lower.slice(0, -1);
+  return lower;
+}
+
+function tokenizeAssignmentText(...parts: Array<string | null | undefined>): Set<string> {
+  const tokens = new Set<string>();
+  for (const part of parts) {
+    if (!part) continue;
+    for (const raw of part.split(/[^a-zA-Z0-9]+/g)) {
+      const normalized = normalizeAssignmentToken(raw);
+      if (normalized) tokens.add(normalized);
+    }
+  }
+  return tokens;
+}
+
+function addHintTokens(target: Set<string>, hints: readonly string[]) {
+  for (const hint of hints) {
+    const normalized = normalizeAssignmentToken(hint);
+    if (normalized) target.add(normalized);
+  }
+}
+
+function rolePriority(agent: AgentAssignmentCandidate): number {
+  const role = (agent.role ?? "").toLowerCase();
+  if (["engineer", "designer", "general"].includes(role)) return 4;
+  if (role === "cmo") return 3;
+  if (role === "cto") return 2;
+  if (role === "ceo" || role === "cfo") return 1;
+  return 0;
+}
+
+function scoreHintOverlap(issueTokens: Set<string>, hints: readonly string[]): number {
+  return hints.reduce((score, hint) => {
+    const normalized = normalizeAssignmentToken(hint);
+    return normalized && issueTokens.has(normalized) ? score + 3 : score;
+  }, 0);
+}
+
+export function inferDefaultAssigneeAgentId(opts: {
+  title: string;
+  description?: string | null;
+  projectName?: string | null;
+  projectDescription?: string | null;
+  goalTitle?: string | null;
+  lineageAssigneeAgentId?: string | null;
+  projectLeadAgentId?: string | null;
+  candidates: AgentAssignmentCandidate[];
+}): string | null {
+  if (opts.lineageAssigneeAgentId) return opts.lineageAssigneeAgentId;
+  if (opts.projectLeadAgentId) return opts.projectLeadAgentId;
+
+  const issueTokens = tokenizeAssignmentText(
+    opts.title,
+    opts.description,
+    opts.projectName,
+    opts.projectDescription,
+    opts.goalTitle,
+  );
+  if (issueTokens.size === 0) return null;
+
+  let best: { id: string; score: number; priority: number } | null = null;
+  let ambiguous = false;
+
+  for (const candidate of opts.candidates) {
+    if (candidate.status === "terminated") continue;
+    const candidateTokens = tokenizeAssignmentText(candidate.name, candidate.title, candidate.role, candidate.capabilities);
+    const lowerText = `${candidate.name} ${candidate.title ?? ""} ${candidate.role ?? ""} ${candidate.capabilities ?? ""}`.toLowerCase();
+
+    if (lowerText.includes("author") || lowerText.includes("publisher") || lowerText.includes("book") || lowerText.includes("kdp")) {
+      addHintTokens(candidateTokens, AUTHOR_HINTS);
+    }
+    if (lowerText.includes("cmo") || lowerText.includes("marketing") || lowerText.includes("content strategy")) {
+      addHintTokens(candidateTokens, CMO_HINTS);
+    }
+    if (lowerText.includes("video") || lowerText.includes("producer") || lowerText.includes("youtube")) {
+      addHintTokens(candidateTokens, VIDEO_HINTS);
+    }
+    if (lowerText.includes("mobile") || lowerText.includes("ios") || lowerText.includes("android") || lowerText.includes("app")) {
+      addHintTokens(candidateTokens, MOBILE_HINTS);
+    }
+    if (lowerText.includes("web") || lowerText.includes("website") || lowerText.includes("landing")) {
+      addHintTokens(candidateTokens, WEB_HINTS);
+    }
+
+    let score = 0;
+    for (const token of issueTokens) {
+      if (candidateTokens.has(token)) score += 2;
+    }
+    score += scoreHintOverlap(issueTokens, AUTHOR_HINTS.filter((hint) => candidateTokens.has(normalizeAssignmentToken(hint) ?? "")));
+    score += scoreHintOverlap(issueTokens, CMO_HINTS.filter((hint) => candidateTokens.has(normalizeAssignmentToken(hint) ?? "")));
+    score += scoreHintOverlap(issueTokens, VIDEO_HINTS.filter((hint) => candidateTokens.has(normalizeAssignmentToken(hint) ?? "")));
+    score += scoreHintOverlap(issueTokens, MOBILE_HINTS.filter((hint) => candidateTokens.has(normalizeAssignmentToken(hint) ?? "")));
+    score += scoreHintOverlap(issueTokens, WEB_HINTS.filter((hint) => candidateTokens.has(normalizeAssignmentToken(hint) ?? "")));
+
+    if (["ceo", "cto", "cfo"].includes((candidate.role ?? "").toLowerCase())) {
+      score -= 1;
+    }
+    if (score <= 0) continue;
+
+    const priority = rolePriority(candidate);
+    if (!best || score > best.score || (score === best.score && priority > best.priority)) {
+      best = { id: candidate.id, score, priority };
+      ambiguous = false;
+      continue;
+    }
+    if (best && score === best.score && priority === best.priority && candidate.id !== best.id) {
+      ambiguous = true;
+    }
+  }
+
+  if (!best || ambiguous) return null;
+  return best.id;
+}
+
 async function labelMapForIssues(dbOrTx: any, issueIds: string[]): Promise<Map<string, IssueLabelRow[]>> {
   const map = new Map<string, IssueLabelRow[]>();
   if (issueIds.length === 0) return map;
@@ -281,6 +429,40 @@ export function issueService(db: Db) {
     return adopted;
   }
 
+  async function resolveLineageDefaults(parentId: string | null | undefined): Promise<LineageDefaults> {
+    const defaults: LineageDefaults = {
+      projectId: null,
+      goalId: null,
+      assigneeAgentId: null,
+    };
+    const visited = new Set<string>();
+    let currentId = parentId ?? null;
+
+    while (currentId && !visited.has(currentId)) {
+      visited.add(currentId);
+      const current = await db
+        .select({
+          id: issues.id,
+          parentId: issues.parentId,
+          projectId: issues.projectId,
+          goalId: issues.goalId,
+          assigneeAgentId: issues.assigneeAgentId,
+        })
+        .from(issues)
+        .where(eq(issues.id, currentId))
+        .then((rows) => rows[0] ?? null);
+      if (!current) break;
+
+      defaults.projectId ??= current.projectId ?? null;
+      defaults.goalId ??= current.goalId ?? null;
+      defaults.assigneeAgentId ??= current.assigneeAgentId ?? null;
+      if (defaults.projectId && defaults.goalId && defaults.assigneeAgentId) break;
+      currentId = current.parentId ?? null;
+    }
+
+    return defaults;
+  }
+
   return {
     list: async (companyId: string, filters?: IssueFilters) => {
       const conditions = [eq(issues.companyId, companyId)];
@@ -383,16 +565,67 @@ export function issueService(db: Db) {
       data: Omit<typeof issues.$inferInsert, "companyId"> & { labelIds?: string[] },
     ) => {
       const { labelIds: inputLabelIds, ...issueData } = data;
-      if (data.assigneeAgentId && data.assigneeUserId) {
+      const lineageDefaults = await resolveLineageDefaults(issueData.parentId ?? null);
+      const nextProjectId = issueData.projectId ?? lineageDefaults.projectId ?? null;
+      const nextGoalId = issueData.goalId ?? lineageDefaults.goalId ?? null;
+
+      let nextAssigneeAgentId = issueData.assigneeAgentId ?? null;
+      if (!nextAssigneeAgentId && !data.assigneeUserId && (issueData.parentId || nextProjectId || nextGoalId)) {
+        const [project, goal, candidateRows] = await Promise.all([
+          nextProjectId
+            ? db
+              .select({
+                id: projects.id,
+                name: projects.name,
+                description: projects.description,
+                leadAgentId: projects.leadAgentId,
+              })
+              .from(projects)
+              .where(and(eq(projects.id, nextProjectId), eq(projects.companyId, companyId)))
+              .then((rows) => rows[0] ?? null)
+            : Promise.resolve(null),
+          nextGoalId
+            ? db
+              .select({ id: goals.id, title: goals.title })
+              .from(goals)
+              .where(and(eq(goals.id, nextGoalId), eq(goals.companyId, companyId)))
+              .then((rows) => rows[0] ?? null)
+            : Promise.resolve(null),
+          db
+            .select({
+              id: agents.id,
+              name: agents.name,
+              role: agents.role,
+              title: agents.title,
+              capabilities: agents.capabilities,
+              status: agents.status,
+            })
+            .from(agents)
+            .where(eq(agents.companyId, companyId)),
+        ]);
+
+        nextAssigneeAgentId = inferDefaultAssigneeAgentId({
+          title: issueData.title,
+          description: issueData.description ?? null,
+          projectName: project?.name ?? null,
+          projectDescription: project?.description ?? null,
+          goalTitle: goal?.title ?? null,
+          lineageAssigneeAgentId: lineageDefaults.assigneeAgentId,
+          projectLeadAgentId: project?.leadAgentId ?? null,
+          candidates: candidateRows,
+        });
+      }
+
+      if (nextAssigneeAgentId && data.assigneeUserId) {
         throw unprocessable("Issue can only have one assignee");
       }
-      if (data.assigneeAgentId) {
-        await assertAssignableAgent(companyId, data.assigneeAgentId);
+      if (nextAssigneeAgentId) {
+        await assertAssignableAgent(companyId, nextAssigneeAgentId);
       }
       if (data.assigneeUserId) {
         await assertAssignableUser(companyId, data.assigneeUserId);
       }
-      if (data.status === "in_progress" && !data.assigneeAgentId && !data.assigneeUserId) {
+      if (data.status === "in_progress" && !nextAssigneeAgentId && !data.assigneeUserId) {
         throw unprocessable("in_progress issues require an assignee");
       }
       return db.transaction(async (tx) => {
@@ -405,7 +638,15 @@ export function issueService(db: Db) {
         const issueNumber = company.issueCounter;
         const identifier = `${company.issuePrefix}-${issueNumber}`;
 
-        const values = { ...issueData, companyId, issueNumber, identifier } as typeof issues.$inferInsert;
+        const values = {
+          ...issueData,
+          projectId: nextProjectId,
+          goalId: nextGoalId,
+          assigneeAgentId: nextAssigneeAgentId,
+          companyId,
+          issueNumber,
+          identifier,
+        } as typeof issues.$inferInsert;
         if (values.status === "in_progress" && !values.startedAt) {
           values.startedAt = new Date();
         }
@@ -972,14 +1213,44 @@ export function issueService(db: Db) {
       }),
 
     findMentionedAgents: async (companyId: string, body: string) => {
-      const re = /\B@([^\s@,!?.]+)/g;
-      const tokens = new Set<string>();
-      let m: RegExpExecArray | null;
-      while ((m = re.exec(body)) !== null) tokens.add(m[1].toLowerCase());
-      if (tokens.size === 0) return [];
-      const rows = await db.select({ id: agents.id, name: agents.name })
-        .from(agents).where(eq(agents.companyId, companyId));
-      return rows.filter(a => tokens.has(a.name.toLowerCase())).map(a => a.id);
+      // Fetch all agents in the company sorted longest-name-first so that
+      // "Web Developer" is matched before "Web" when both exist.
+      const rows = await db
+        .select({ id: agents.id, name: agents.name })
+        .from(agents)
+        .where(eq(agents.companyId, companyId));
+
+      if (rows.length === 0) return [];
+
+      // Sort longest name first so greedy matching works (e.g. "Web Developer" > "Web")
+      const sorted = [...rows].sort((a, b) => b.name.length - a.name.length);
+
+      const matched = new Set<string>();
+      const bodyLower = body.toLowerCase();
+
+      for (const agent of sorted) {
+        const nameLower = agent.name.toLowerCase();
+        // Escape regex special chars in the agent name
+        const escaped = nameLower.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        // Match @Name followed by end-of-string, whitespace, or punctuation
+        // Use the 'g' flag to catch multiple mentions of the same agent
+        const re = new RegExp(`@${escaped}(?=[\\s,!?.;:@]|$)`, "gi");
+        if (re.test(body)) {
+          matched.add(agent.id);
+          continue;
+        }
+        // Also match the name with spaces removed (e.g. @VideoProducer for "Video Producer")
+        const nameNoSpaces = nameLower.replace(/\s+/g, "");
+        if (nameNoSpaces !== nameLower) {
+          const escapedNoSpaces = nameNoSpaces.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+          const reNoSpaces = new RegExp(`@${escapedNoSpaces}(?=[\\s,!?.;:@]|$)`, "gi");
+          if (reNoSpaces.test(body)) {
+            matched.add(agent.id);
+          }
+        }
+      }
+
+      return [...matched];
     },
 
     findMentionedProjectIds: async (issueId: string) => {

@@ -54,11 +54,13 @@ export const adapterLabels: Record<string, string> = {
   codex_local: "Codex (local)",
   opencode_local: "OpenCode (local)",
   gemini_local: "Gemini (local)",
+  droid_local: "Droid (Factory.ai)",
   openclaw: "OpenClaw",
   cursor: "Cursor (local)",
   process: "Process",
   http: "HTTP",
 };
+
 
 export const roleLabels: Record<string, string> = {
   ceo: "CEO", cto: "CTO", cmo: "CMO", cfo: "CFO",

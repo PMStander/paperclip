@@ -24,7 +24,7 @@ import { createApp } from "./app.js";
 import { loadConfig } from "./config.js";
 import { logger } from "./middleware/logger.js";
 import { setupLiveEventsWebSocketServer } from "./realtime/live-events-ws.js";
-import { heartbeatService } from "./services/index.js";
+import { applyVariantToIssueDraft, experimentService, heartbeatService } from "./services/index.js";
 import { createStorageServiceFromConfig } from "./storage/index.js";
 import { printStartupBanner } from "./startup-banner.js";
 import { getBoardClaimWarningUrl, initializeBoardClaimChallenge } from "./board-claim.js";
@@ -375,7 +375,7 @@ if (config.databaseUrl) {
 if (config.deploymentMode === "local_trusted" && !isLoopbackHost(config.host)) {
   throw new Error(
     `local_trusted mode requires loopback host binding (received: ${config.host}). ` +
-      "Use authenticated mode for non-loopback deployments.",
+    "Use authenticated mode for non-loopback deployments.",
   );
 }
 
@@ -467,9 +467,15 @@ setupLiveEventsWebSocketServer(server, db as any, {
 
 if (config.heartbeatSchedulerEnabled) {
   const heartbeat = heartbeatService(db as any);
+  const experiments = experimentService(db as any);
+  const schedulesSvc = (await import("./services/schedule.js")).issueScheduleService(db as any);
+  const issuesSvc = (await import("./services/issues.js")).issueService(db as any);
+  const soloRunner = (await import("./services/solo-runner.js")).soloRunnerService(db as any);
+  const orphanedRunStaleThresholdMs = 5 * 60 * 1000;
 
-  // Reap orphaned runs at startup (no threshold -- runningProcesses is empty)
-  void heartbeat.reapOrphanedRuns().catch((err) => {
+  // On startup we do not yet know whether active runs were truly orphaned or the server
+  // just restarted during local development, so only reap stale runs.
+  void heartbeat.reapOrphanedRuns({ staleThresholdMs: orphanedRunStaleThresholdMs }).catch((err) => {
     logger.error({ err }, "startup reap of orphaned heartbeat runs failed");
   });
 
@@ -485,9 +491,92 @@ if (config.heartbeatSchedulerEnabled) {
         logger.error({ err }, "heartbeat timer tick failed");
       });
 
+    // Tick scheduled issues (cron jobs)
+    void schedulesSvc
+      .tickSchedules(new Date(), async (companyId, templateIssue, scheduleId) => {
+        try {
+          const populationRoute = await experiments.routePopulationVariant({
+            companyId,
+            subjectType: "issue_schedule",
+            subjectId: scheduleId,
+            assignmentType: "issue_schedule",
+            assignmentKey: `${scheduleId}:${Date.now()}`,
+            issueScheduleId: scheduleId,
+            metadata: {
+              templateIssueId: templateIssue.id,
+            },
+          });
+
+          const childIssueDraft = applyVariantToIssueDraft({
+            title: templateIssue.title,
+            description: templateIssue.description,
+            status: "todo",
+            priority: templateIssue.priority ?? "medium",
+            assigneeAgentId: templateIssue.assigneeAgentId,
+            assigneeUserId: templateIssue.assigneeUserId,
+            projectId: templateIssue.projectId,
+            parentId: templateIssue.id,
+            requestDepth: 0,
+          }, populationRoute?.variant ?? null);
+
+          const childIssue = await issuesSvc.create(companyId, childIssueDraft as any);
+
+          // Wake the assigned agent if there is one
+          if (childIssue.assigneeAgentId) {
+            await heartbeat.wakeup(childIssue.assigneeAgentId, {
+              source: "automation",
+              triggerDetail: "system",
+              reason: "scheduled_issue",
+              payload: {
+                issueId: childIssue.id,
+                scheduleId,
+                populationCampaignId: populationRoute?.campaign.id ?? null,
+                populationVariantId: populationRoute?.variant.id ?? null,
+                variantAssignmentId: populationRoute?.assignment.id ?? null,
+              },
+              contextSnapshot: {
+                issueId: childIssue.id,
+                source: "issue_schedule.fired",
+                populationCampaignId: populationRoute?.campaign.id ?? null,
+                populationVariantId: populationRoute?.variant.id ?? null,
+                variantAssignmentId: populationRoute?.assignment.id ?? null,
+              },
+            });
+          }
+
+          return childIssue.id;
+        } catch (err) {
+          logger.error(
+            { err, companyId, templateIssueId: templateIssue.id, scheduleId },
+            "Failed to create child issue from schedule",
+          );
+          return null;
+        }
+      })
+      .then((result) => {
+        if (result.fired > 0) {
+          logger.info({ ...result }, "schedule tick fired");
+        }
+      })
+      .catch((err) => {
+        logger.error({ err }, "schedule tick failed");
+      });
+
+    // Tick scheduled solos
+    void soloRunner
+      .tickDueInstances(new Date())
+      .then((result) => {
+        if (result.fired > 0) {
+          logger.info({ ...result }, "solo schedule tick fired");
+        }
+      })
+      .catch((err) => {
+        logger.error({ err }, "solo schedule tick failed");
+      });
+
     // Periodically reap orphaned runs (5-min staleness threshold)
     void heartbeat
-      .reapOrphanedRuns({ staleThresholdMs: 5 * 60 * 1000 })
+      .reapOrphanedRuns({ staleThresholdMs: orphanedRunStaleThresholdMs })
       .catch((err) => {
         logger.error({ err }, "periodic reap of orphaned heartbeat runs failed");
       });

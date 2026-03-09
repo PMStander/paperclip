@@ -1,7 +1,7 @@
 import type { Goal } from "@paperclipai/shared";
 import { Link } from "@/lib/router";
 import { StatusBadge } from "./StatusBadge";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, CheckCircle2 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { useState } from "react";
 
@@ -9,6 +9,7 @@ interface GoalTreeProps {
   goals: Goal[];
   goalLink?: (goal: Goal) => string;
   onSelect?: (goal: Goal) => void;
+  issuesByGoalId?: Map<string, { total: number; done: number }>;
 }
 
 interface GoalNodeProps {
@@ -18,12 +19,14 @@ interface GoalNodeProps {
   depth: number;
   goalLink?: (goal: Goal) => string;
   onSelect?: (goal: Goal) => void;
+  issuesByGoalId?: Map<string, { total: number; done: number }>;
 }
 
-function GoalNode({ goal, children, allGoals, depth, goalLink, onSelect }: GoalNodeProps) {
+function GoalNode({ goal, children, allGoals, depth, goalLink, onSelect, issuesByGoalId }: GoalNodeProps) {
   const [expanded, setExpanded] = useState(true);
   const hasChildren = children.length > 0;
   const link = goalLink?.(goal);
+  const progress = issuesByGoalId?.get(goal.id);
 
   const inner = (
     <>
@@ -45,6 +48,31 @@ function GoalNode({ goal, children, allGoals, depth, goalLink, onSelect }: GoalN
       )}
       <span className="text-xs text-muted-foreground capitalize">{goal.level}</span>
       <span className="flex-1 truncate">{goal.title}</span>
+
+      {progress && progress.total > 0 && (
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1.5">
+            <div className="h-1.5 w-20 rounded-full bg-muted overflow-hidden">
+              <div
+                className={cn(
+                  "h-full rounded-full transition-all",
+                  progress.done === progress.total
+                    ? "bg-emerald-500"
+                    : "bg-primary",
+                )}
+                style={{ width: `${Math.round((progress.done / progress.total) * 100)}%` }}
+              />
+            </div>
+            <span className="text-xs text-muted-foreground whitespace-nowrap">
+              {progress.done}/{progress.total}
+            </span>
+          </div>
+          {progress.done === progress.total && (
+            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+          )}
+        </div>
+      )}
+
       <StatusBadge status={goal.status} />
     </>
   );
@@ -83,6 +111,7 @@ function GoalNode({ goal, children, allGoals, depth, goalLink, onSelect }: GoalN
               depth={depth + 1}
               goalLink={goalLink}
               onSelect={onSelect}
+              issuesByGoalId={issuesByGoalId}
             />
           ))}
         </div>
@@ -91,7 +120,7 @@ function GoalNode({ goal, children, allGoals, depth, goalLink, onSelect }: GoalN
   );
 }
 
-export function GoalTree({ goals, goalLink, onSelect }: GoalTreeProps) {
+export function GoalTree({ goals, goalLink, onSelect, issuesByGoalId }: GoalTreeProps) {
   const goalIds = new Set(goals.map((g) => g.id));
   const roots = goals.filter((g) => !g.parentId || !goalIds.has(g.parentId));
 
@@ -110,6 +139,7 @@ export function GoalTree({ goals, goalLink, onSelect }: GoalTreeProps) {
           depth={0}
           goalLink={goalLink}
           onSelect={onSelect}
+          issuesByGoalId={issuesByGoalId}
         />
       ))}
     </div>

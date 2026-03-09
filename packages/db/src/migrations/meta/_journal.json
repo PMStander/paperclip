@@ -176,6 +176,48 @@
       "when": 1772796484150,
       "tag": "0024_soft_smasher",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1772799300000,
+      "tag": "0025_solo_instances_run_schedule",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1772802000000,
+      "tag": "0026_issue_schedules",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1772890333799,
+      "tag": "0027_silky_valkyrie",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1772902779900,
+      "tag": "0028_breezy_edwin_jarvis",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1772958321133,
+      "tag": "0029_mute_chimera",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1772961809003,
+      "tag": "0030_panoramic_kid_colt",
+      "breakpoints": true
     }
   ]
 }

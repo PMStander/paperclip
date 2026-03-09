@@ -31,3 +31,16 @@ export { activityLog } from "./activity_log.js";
 export { companySecrets } from "./company_secrets.js";
 export { companySecretVersions } from "./company_secret_versions.js";
 export { soloInstances } from "./solo_instances.js";
+export { soloExperiments } from "./solo_experiments.js";
+export { issueSchedules } from "./issue_schedules.js";
+export {
+  experimentCampaigns,
+  experimentVariants,
+  evaluationSuites,
+  evaluationRuns,
+  variantAssignments,
+  policyPacks,
+  policyVersions,
+  policyRollouts,
+  branchExperiments,
+} from "./experimentation.js";

@@ -16,7 +16,7 @@ import { formatDate, cn, projectUrl } from "../lib/utils";
 import { timeAgo } from "../lib/timeAgo";
 import { Separator } from "@/components/ui/separator";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { User, Hexagon, ArrowUpRight, Tag, Plus, Trash2 } from "lucide-react";
+import { User, Hexagon, ArrowUpRight, Tag, Plus, Trash2, Link2Off, Link2 } from "lucide-react";
 import { AgentIcon } from "./AgentIconPicker";
 
 interface IssuePropertiesProps {
@@ -108,6 +108,8 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
   const [labelSearch, setLabelSearch] = useState("");
   const [newLabelName, setNewLabelName] = useState("");
   const [newLabelColor, setNewLabelColor] = useState("#6366f1");
+  const [blockedByOpen, setBlockedByOpen] = useState(false);
+  const [blockedBySearch, setBlockedBySearch] = useState("");
 
   const { data: session } = useQuery({
     queryKey: queryKeys.auth.session,
@@ -119,6 +121,12 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
     queryKey: queryKeys.agents.list(companyId!),
     queryFn: () => agentsApi.list(companyId!),
     enabled: !!companyId,
+  });
+
+  const { data: allIssues } = useQuery({
+    queryKey: queryKeys.issues.list(companyId!),
+    queryFn: () => issuesApi.list(companyId!),
+    enabled: !!companyId && blockedByOpen,
   });
 
   const { data: projects } = useQuery({
@@ -508,6 +516,89 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
             </Link>
           </PropertyRow>
         )}
+
+        <PropertyPicker
+          inline={inline}
+          label="Blocked By"
+          open={blockedByOpen}
+          onOpenChange={(open) => { setBlockedByOpen(open); if (!open) setBlockedBySearch(""); }}
+          triggerContent={
+            issue.blockedByIssueId ? (
+              <>
+                <Link2 className="h-3.5 w-3.5 text-amber-500" />
+                <span className="text-sm text-amber-600 dark:text-amber-400 truncate">
+                  {(() => {
+                    const linked = allIssues?.find((i) => i.id === issue.blockedByIssueId);
+                    return linked?.identifier ?? linked?.title?.slice(0, 30) ?? issue.blockedByIssueId!.slice(0, 8);
+                  })()}
+                </span>
+              </>
+            ) : (
+              <>
+                <Link2Off className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">None</span>
+              </>
+            )
+          }
+          popoverClassName="w-64"
+          extra={
+            issue.blockedByIssueId ? (
+              <button
+                className="inline-flex items-center justify-center h-5 w-5 rounded hover:bg-accent/50 transition-colors text-muted-foreground hover:text-destructive"
+                title="Clear blocked-by"
+                onClick={() => onUpdate({ blockedByIssueId: null })}
+              >
+                <Link2Off className="h-3 w-3" />
+              </button>
+            ) : undefined
+          }
+        >
+          <>
+            <input
+              className="w-full px-2 py-1.5 text-xs bg-transparent outline-none border-b border-border mb-1 placeholder:text-muted-foreground/50"
+              placeholder="Search issues..."
+              value={blockedBySearch}
+              onChange={(e) => setBlockedBySearch(e.target.value)}
+              autoFocus={!inline}
+            />
+            <div className="max-h-48 overflow-y-auto overscroll-contain">
+              <button
+                className={cn(
+                  "flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50",
+                  !issue.blockedByIssueId && "bg-accent"
+                )}
+                onClick={() => { onUpdate({ blockedByIssueId: null }); setBlockedByOpen(false); }}
+              >
+                No blocker
+              </button>
+              {(allIssues ?? [])
+                .filter((i) => i.id !== issue.id)
+                .filter((i) => {
+                  if (!blockedBySearch.trim()) return true;
+                  const q = blockedBySearch.toLowerCase();
+                  return (
+                    i.title.toLowerCase().includes(q) ||
+                    (i.identifier ?? "").toLowerCase().includes(q)
+                  );
+                })
+                .map((i) => (
+                  <button
+                    key={i.id}
+                    className={cn(
+                      "flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50 text-left",
+                      i.id === issue.blockedByIssueId && "bg-accent"
+                    )}
+                    onClick={() => { onUpdate({ blockedByIssueId: i.id }); setBlockedByOpen(false); }}
+                  >
+                    {i.identifier && (
+                      <span className="font-mono text-muted-foreground shrink-0">{i.identifier}</span>
+                    )}
+                    <span className="truncate">{i.title}</span>
+                  </button>
+                ))}
+            </div>
+          </>
+        </PropertyPicker>
 
         {issue.requestDepth > 0 && (
           <PropertyRow label="Depth">

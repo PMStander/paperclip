@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useLocation, useNavigate } from "@/lib/router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -18,6 +18,7 @@ import { useCompany } from "@/context/CompanyContext";
 import { solosApi, type SoloDefinition, type SoloInstance } from "@/api/solos";
 import { queryKeys } from "@/lib/queryKeys";
 import { SoloSetupWizard } from "@/components/SoloSetupWizard";
+import { useToast } from "@/context/ToastContext";
 
 // ─── Category colors ────────────────────────────────────────────────────────
 
@@ -76,6 +77,29 @@ export function Solos() {
   const deactivateMutation = useMutation({
     mutationFn: (id: string) => solosApi.deactivate(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.solos.instances(selectedCompanyId!) }),
+  });
+
+  const { pushToast } = useToast();
+
+  const runNowMutation = useMutation({
+    mutationFn: (id: string) => solosApi.runNow(id),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.solos.instances(selectedCompanyId!) });
+      pushToast({
+        title: data.status === "queued" ? "Solo triggered ✓" : "Solo skipped",
+        body: data.status === "queued"
+          ? `Issue ${data.issueIdentifier ?? ""} created and agent run queued. Check Issues for progress.`
+          : "The run was skipped (agent may be paused or busy).",
+        tone: data.status === "queued" ? "success" : "warn",
+      });
+    },
+    onError: () => {
+      pushToast({
+        title: "Failed to trigger solo",
+        body: "An error occurred while triggering the agent. Please try again.",
+        tone: "error",
+      });
+    },
   });
 
   // ── Filtered definitions ────────────────────────────────────────────────
@@ -157,6 +181,7 @@ export function Solos() {
             onPause={(id) => pauseMutation.mutate(id)}
             onResume={(id) => resumeMutation.mutate(id)}
             onDeactivate={(id) => deactivateMutation.mutate(id)}
+            onRunNow={(id) => runNowMutation.mutate(id)}
           />
         )}
       </div>
@@ -271,6 +296,7 @@ function ActiveTab({
   onPause,
   onResume,
   onDeactivate,
+  onRunNow,
 }: {
   instances: SoloInstance[];
   definitions: SoloDefinition[];
@@ -278,6 +304,7 @@ function ActiveTab({
   onPause: (id: string) => void;
   onResume: (id: string) => void;
   onDeactivate: (id: string) => void;
+  onRunNow: (id: string) => void;
 }) {
   const defMap = useMemo(() => {
     const m = new Map<string, SoloDefinition>();
@@ -310,6 +337,10 @@ function ActiveTab({
       {instances.map((inst) => {
         const def = defMap.get(inst.soloId);
         const statusColor = STATUS_COLORS[inst.status] ?? STATUS_COLORS.active;
+        const scheduleLabel =
+          inst.runSchedule === "once" ? "Run once"
+          : inst.runSchedule === "manual" ? "On demand"
+          : inst.runSchedule.charAt(0).toUpperCase() + inst.runSchedule.slice(1);
         return (
           <div
             key={inst.id}
@@ -324,12 +355,48 @@ function ActiveTab({
                 <Badge variant="outline" className={`text-[10px] ${statusColor}`}>
                   {inst.status}
                 </Badge>
+                <Badge variant="outline" className="text-[10px] bg-muted/50 text-muted-foreground border-border">
+                  ⏱ {scheduleLabel}
+                </Badge>
               </div>
-              <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                {def?.description ?? inst.soloId}
-              </p>
+              <div className="flex items-center gap-3 mt-0.5">
+                <p className="text-xs text-muted-foreground truncate">
+                  {def?.description ?? inst.soloId}
+                </p>
+                <span className="text-[10px] text-muted-foreground shrink-0">
+                  Experiments: {inst.experimentCount}
+                </span>
+                {(inst.bestSummary || inst.bestScore != null) && (
+                  <span className="text-[10px] text-muted-foreground shrink-0 max-w-[320px] truncate">
+                    Best: {inst.bestSummary ?? "Variant"}
+                    {inst.bestScore != null ? ` (${inst.bestScore}${inst.bestScoreLabel ? ` ${inst.bestScoreLabel}` : ""})` : ""}
+                  </span>
+                )}
+                {inst.lastRunAt && (
+                  <span className="text-[10px] text-muted-foreground shrink-0">
+                    Last run: {new Date(inst.lastRunAt).toLocaleString()}
+                  </span>
+                )}
+                {inst.nextRunAt && inst.runSchedule !== "manual" && (
+                  <span className="text-[10px] text-muted-foreground shrink-0">
+                    Next: {new Date(inst.nextRunAt).toLocaleString()}
+                  </span>
+                )}
+              </div>
             </div>
             <div className="flex items-center gap-1 shrink-0">
+              {/* Run Now button — always available for active or manual solos */}
+              {inst.status === "active" && (
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => onRunNow(inst.id)}
+                  title="Run Now"
+                  className="text-emerald-400 hover:text-emerald-300"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                </Button>
+              )}
               {inst.status === "active" ? (
                 <Button variant="ghost" size="icon-sm" onClick={() => onPause(inst.id)} title="Pause">
                   <Pause className="h-3.5 w-3.5" />

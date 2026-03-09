@@ -1,21 +1,45 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "@/lib/router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { issuesApi } from "../api/issues";
 import { agentsApi } from "../api/agents";
 import { heartbeatsApi } from "../api/heartbeats";
+import { schedulesApi } from "../api/schedules";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
+import { useDialog } from "../context/DialogContext";
 import { queryKeys } from "../lib/queryKeys";
 import { EmptyState } from "../components/EmptyState";
 import { IssuesList } from "../components/IssuesList";
-import { CircleDot } from "lucide-react";
+import { SchedulesList } from "../components/SchedulesList";
+import { NewScheduleDialog } from "../components/NewScheduleDialog";
+import { CircleDot, CalendarClock, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { cn } from "../lib/utils";
+
+type Tab = "issues" | "schedules";
 
 export function Issues() {
   const { selectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
+  const { openNewSchedule } = useDialog();
+
+  const [activeTab, setActiveTab] = useState<Tab>(
+    searchParams.get("tab") === "schedules" ? "schedules" : "issues",
+  );
+
+  const handleTabChange = (tab: Tab) => {
+    setActiveTab(tab);
+    const newParams = new URLSearchParams(searchParams);
+    if (tab === "schedules") {
+      newParams.set("tab", "schedules");
+    } else {
+      newParams.delete("tab");
+    }
+    setSearchParams(newParams);
+  };
 
   const { data: agents } = useQuery({
     queryKey: queryKeys.agents.list(selectedCompanyId!),
@@ -48,6 +72,15 @@ export function Issues() {
     enabled: !!selectedCompanyId,
   });
 
+  const {
+    data: schedules,
+    isLoading: schedulesLoading,
+  } = useQuery({
+    queryKey: queryKeys.issueSchedules.list(selectedCompanyId!),
+    queryFn: () => schedulesApi.list(selectedCompanyId!),
+    enabled: !!selectedCompanyId && activeTab === "schedules",
+  });
+
   const updateIssue = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) =>
       issuesApi.update(id, data),
@@ -61,15 +94,74 @@ export function Issues() {
   }
 
   return (
-    <IssuesList
-      issues={issues ?? []}
-      isLoading={isLoading}
-      error={error as Error | null}
-      agents={agents}
-      liveIssueIds={liveIssueIds}
-      viewStateKey="paperclip:issues-view"
-      initialAssignees={searchParams.get("assignee") ? [searchParams.get("assignee")!] : undefined}
-      onUpdateIssue={(id, data) => updateIssue.mutate({ id, data })}
-    />
+    <div className="flex flex-col h-full">
+      {/* Tab bar */}
+      <div className="flex items-center justify-between border-b border-border px-4 shrink-0">
+        <div className="flex items-center gap-0">
+          <button
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors",
+              activeTab === "issues"
+                ? "border-primary text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground",
+            )}
+            onClick={() => handleTabChange("issues")}
+          >
+            <CircleDot className="h-4 w-4" />
+            Issues
+          </button>
+          <button
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors",
+              activeTab === "schedules"
+                ? "border-primary text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground",
+            )}
+            onClick={() => handleTabChange("schedules")}
+          >
+            <CalendarClock className="h-4 w-4" />
+            Schedules
+          </button>
+        </div>
+        {activeTab === "schedules" && (
+          <Button
+            size="sm"
+            variant="default"
+            className="gap-1.5"
+            onClick={() => openNewSchedule()}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            New Schedule
+          </Button>
+        )}
+      </div>
+
+      {/* Tab content */}
+      <div className="flex-1 min-h-0 overflow-y-auto">
+        {activeTab === "issues" && (
+          <IssuesList
+            issues={issues ?? []}
+            isLoading={isLoading}
+            error={error as Error | null}
+            agents={agents}
+            liveIssueIds={liveIssueIds}
+            viewStateKey="paperclip:issues-view"
+            initialAssignees={
+              searchParams.get("assignee") ? [searchParams.get("assignee")!] : undefined
+            }
+            onUpdateIssue={(id, data) => updateIssue.mutate({ id, data })}
+          />
+        )}
+        {activeTab === "schedules" && (
+          <SchedulesList
+            schedules={schedules ?? []}
+            isLoading={schedulesLoading}
+          />
+        )}
+      </div>
+
+      {/* Dialog */}
+      <NewScheduleDialog />
+    </div>
   );
 }

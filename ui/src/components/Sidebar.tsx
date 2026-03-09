@@ -10,6 +10,8 @@ import {
   Network,
   Settings,
   Zap,
+  Beaker,
+  CheckSquare,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { SidebarSection } from "./SidebarSection";
@@ -91,7 +93,15 @@ export function Sidebar() {
         <SidebarSection label="Work">
           <SidebarNavItem to="/issues" label="Issues" icon={CircleDot} />
           <SidebarNavItem to="/goals" label="Goals" icon={Target} />
+          <SidebarNavItem
+            to="/approvals"
+            label="Approvals"
+            icon={CheckSquare}
+            badge={sidebarBadges?.approvals}
+            badgeTone={sidebarBadges && sidebarBadges.approvals > 0 ? "default" : "default"}
+          />
           <SidebarNavItem to="/solos" label="Solo" icon={Zap} />
+          <SidebarNavItem to="/experiments" label="Experiments" icon={Beaker} />
         </SidebarSection>
 
         <SidebarProjects />

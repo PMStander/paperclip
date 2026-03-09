@@ -166,7 +166,32 @@ const TimelineList = memo(function TimelineList({
                 {formatDateTime(comment.createdAt)}
               </a>
             </div>
-            <MarkdownBody className="text-sm">{comment.body}</MarkdownBody>
+            {(() => {
+              const body = comment.body;
+              const artifactRegex = /```artifact:\s*([^\n\s]+?)\s*\n([\s\S]*?)```/g;
+              const parts = [];
+              let lastIndex = 0;
+              let match;
+
+              while ((match = artifactRegex.exec(body)) !== null) {
+                // Add text before artifact
+                if (match.index > lastIndex) {
+                  parts.push(body.slice(lastIndex, match.index));
+                }
+                
+                const filename = match[1].trim();
+                parts.push(`\n> [!NOTE]\n> **Artifact Published**: \`${filename}\` (View in Side Canvas)\n\n`);
+                
+                lastIndex = match.index + match[0].length;
+              }
+
+              if (lastIndex < body.length) {
+                parts.push(body.slice(lastIndex));
+              }
+
+              const transformedBody = parts.length > 0 ? parts.join("") : body;
+              return <MarkdownBody className="text-sm">{transformedBody}</MarkdownBody>;
+            })()}
             {comment.runId && (
               <div className="mt-2 pt-2 border-t border-border/60">
                 {comment.runAgentId ? (

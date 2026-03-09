@@ -84,6 +84,7 @@ export interface SoloDefinition {
 // ─── Instance types ─────────────────────────────────────────────────────────
 
 export type SoloInstanceStatus = "active" | "paused" | "error" | "inactive";
+export type RunSchedule = "once" | "hourly" | "daily" | "weekly" | "manual";
 
 export interface SoloInstance {
     id: string;
@@ -91,8 +92,16 @@ export interface SoloInstance {
     soloId: string;
     agentName: string;
     status: SoloInstanceStatus;
+    runSchedule: RunSchedule;
     config: Record<string, string>;
     agentId: string | null;
+    experimentCount: number;
+    bestExperimentId: string | null;
+    bestScore: number | null;
+    bestScoreLabel: string | null;
+    bestSummary: string | null;
+    lastRunAt: string | null;
+    nextRunAt: string | null;
     createdAt: string;
     updatedAt: string;
 }

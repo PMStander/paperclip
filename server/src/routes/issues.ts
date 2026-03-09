@@ -509,6 +509,40 @@ export function issueRoutes(db: Db, storage: StorageService) {
 
     const assigneeChanged = assigneeWillChange;
 
+    // Project status auto-advance: if this issue's status changed and it belongs to a project,
+    // check whether all issues in that project are now done/cancelled — if so, mark the project done.
+    if (
+      updateFields.status !== undefined &&
+      updateFields.status !== existing.status &&
+      issue.projectId
+    ) {
+      const projectId = issue.projectId;
+      void (async () => {
+        try {
+          const project = await projectsSvc.getById(projectId);
+          // Only auto-advance projects that aren't already done/cancelled
+          if (!project || project.status === "done" || project.status === "cancelled") return;
+
+          const allProjectIssues = await svc.list(issue.companyId, { projectId });
+          if (allProjectIssues.length === 0) return;
+
+          const allClosed = allProjectIssues.every(
+            (i) => i.status === "done" || i.status === "cancelled",
+          );
+
+          if (allClosed) {
+            await projectsSvc.update(projectId, { status: "done" });
+            logger.info(
+              { projectId, issueId: issue.id },
+              "auto-advanced project status to done (all issues closed)",
+            );
+          }
+        } catch (err) {
+          logger.warn({ err, projectId, issueId: issue.id }, "failed to auto-advance project status");
+        }
+      })();
+    }
+
     // Merge all wakeups from this update into one enqueue per agent to avoid duplicate runs.
     void (async () => {
       const wakeups = new Map<string, Parameters<typeof heartbeat.wakeup>[1]>();

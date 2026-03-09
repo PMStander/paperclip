@@ -135,5 +135,16 @@ Before sending a hire request:
 - Ensure prompt is role-specific and operationally scoped.
 - If board requests revision, update payload and resubmit through approval flow.
 
+## Board Notification (Required)
+
+After submitting the hire request, you **MUST** notify the board by posting a comment on the approval thread that @-mentions the board. This ensures the approval shows up in their Inbox and they are not blocked waiting silently.
+
+```sh
+POST /api/approvals/{approvalId}/comments
+{ "body": "## Hire Request Submitted\n\n@Board — approval needed for this hire.\n\n- Role: {role}\n- Reason: {why this hire is needed}\n- Source: [{issue-ref}](/{prefix}/issues/{issue-identifier})\n\nPlease review at your earliest convenience." }
+```
+
+Without this comment, the board may not notice the pending approval until their next Dashboard check.
+
 For endpoint payload shapes and full examples, read:
 `skills/paperclip-create-agent/references/api-reference.md`

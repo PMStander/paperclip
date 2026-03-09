@@ -216,11 +216,13 @@ export async function runChildProcess(
       cwd: opts.cwd,
       env: mergedEnv,
       shell: false,
-      stdio: [opts.stdin != null ? "pipe" : "ignore", "pipe", "pipe"],
+      stdio: ["pipe", "pipe", "pipe"],
     });
 
-    if (opts.stdin != null && child.stdin) {
-      child.stdin.write(opts.stdin);
+    if (child.stdin) {
+      if (opts.stdin != null) {
+        child.stdin.write(opts.stdin);
+      }
       child.stdin.end();
     }
 
@@ -234,14 +236,14 @@ export async function runChildProcess(
     const timeout =
       opts.timeoutSec > 0
         ? setTimeout(() => {
-            timedOut = true;
-            child.kill("SIGTERM");
-            setTimeout(() => {
-              if (!child.killed) {
-                child.kill("SIGKILL");
-              }
-            }, Math.max(1, opts.graceSec) * 1000);
-          }, opts.timeoutSec * 1000)
+          timedOut = true;
+          child.kill("SIGTERM");
+          setTimeout(() => {
+            if (!child.killed) {
+              child.kill("SIGKILL");
+            }
+          }, Math.max(1, opts.graceSec) * 1000);
+        }, opts.timeoutSec * 1000)
         : null;
 
     child.stdout?.on("data", (chunk) => {

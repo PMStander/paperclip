@@ -88,8 +88,42 @@ export interface SoloInstance {
     soloId: string;
     agentName: string;
     status: "active" | "paused" | "error" | "inactive";
+    runSchedule: "once" | "hourly" | "daily" | "weekly" | "manual";
     config: Record<string, string>;
     agentId: string | null;
+    experimentCount: number;
+    bestExperimentId: string | null;
+    bestScore: number | null;
+    bestScoreLabel: string | null;
+    bestSummary: string | null;
+    lastRunAt: string | null;
+    nextRunAt: string | null;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface SoloExperiment {
+    id: string;
+    companyId: string;
+    soloInstanceId: string;
+    basedOnExperimentId: string | null;
+    issueId: string | null;
+    heartbeatRunId: string | null;
+    sequence: number;
+    trigger: "manual" | "schedule" | "retry";
+    status: "queued" | "running" | "succeeded" | "failed" | "cancelled" | "timed_out" | "skipped";
+    decision: "pending" | "baseline" | "keep" | "discard";
+    variantLabel: string | null;
+    hypothesis: string | null;
+    summary: string | null;
+    decisionReason: string | null;
+    score: number | null;
+    scoreLabel: string | null;
+    metrics: Record<string, unknown>;
+    inputSnapshot: Record<string, unknown>;
+    isBest: boolean;
+    startedAt: string | null;
+    completedAt: string | null;
     createdAt: string;
     updatedAt: string;
 }
@@ -108,11 +142,13 @@ export const solosApi = {
             .get<{ instances: SoloInstance[] }>(`/companies/${companyId}/solo-instances`)
             .then((r) => r.instances),
 
-    activate: (companyId: string, soloId: string, config: Record<string, string>, agentName?: string) =>
+    activate: (companyId: string, soloId: string, config: Record<string, string>, agentName?: string, agentId?: string, runSchedule?: string) =>
         api.post<SoloInstance>(`/solos/${encodeURIComponent(soloId)}/activate`, {
             companyId,
             config,
             agentName,
+            agentId,
+            runSchedule,
         }),
 
     pause: (instanceId: string) =>
@@ -123,4 +159,20 @@ export const solosApi = {
 
     deactivate: (instanceId: string) =>
         api.delete<{ ok: true }>(`/solo-instances/${encodeURIComponent(instanceId)}`),
+
+    runNow: (instanceId: string) =>
+        api.post<{ status: string; runId?: string; experimentId: string; instance: SoloInstance; issueId?: string; issueIdentifier?: string }>(`/solo-instances/${encodeURIComponent(instanceId)}/run-now`, {}),
+
+    listExperiments: (companyId: string, instanceId: string) =>
+        api
+            .get<{ experiments: SoloExperiment[] }>(`/companies/${encodeURIComponent(companyId)}/solo-instances/${encodeURIComponent(instanceId)}/experiments`)
+            .then((r) => r.experiments),
+
+    getExperiment: (experimentId: string) =>
+        api.get<SoloExperiment>(`/solo-experiments/${encodeURIComponent(experimentId)}`),
+
+    updateExperiment: (
+        experimentId: string,
+        data: Partial<Pick<SoloExperiment, "trigger" | "status" | "decision" | "variantLabel" | "hypothesis" | "summary" | "decisionReason" | "score" | "scoreLabel" | "metrics" | "inputSnapshot">> & { promoteToBest?: boolean },
+    ) => api.patch<SoloExperiment>(`/solo-experiments/${encodeURIComponent(experimentId)}`, data),
 };

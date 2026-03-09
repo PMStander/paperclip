@@ -8,6 +8,8 @@ export const createGoalSchema = z.object({
   status: z.enum(GOAL_STATUSES).optional().default("planned"),
   parentId: z.string().uuid().optional().nullable(),
   ownerAgentId: z.string().uuid().optional().nullable(),
+  projectIds: z.array(z.string().uuid()).optional().default([]),
+  coverImageId: z.string().uuid().optional().nullable(),
 });
 
 export type CreateGoal = z.infer<typeof createGoalSchema>;

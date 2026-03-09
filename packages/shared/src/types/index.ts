@@ -70,3 +70,16 @@ export type {
   CompanyPortabilityImportResult,
   CompanyPortabilityExportRequest,
 } from "./company-portability.js";
+export type { IssueSchedule } from "./issue-schedule.js";
+export type { SoloExperiment } from "./solo-experiment.js";
+export type {
+  ExperimentCampaign,
+  ExperimentVariant,
+  EvaluationSuite,
+  EvaluationRun,
+  VariantAssignment,
+  PolicyPack,
+  PolicyVersion,
+  PolicyRollout,
+  BranchExperiment,
+} from "./experimentation.js";

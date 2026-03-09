@@ -1,6 +1,7 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { goalsApi } from "../api/goals";
+import { issuesApi } from "../api/issues";
 import { useCompany } from "../context/CompanyContext";
 import { useDialog } from "../context/DialogContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
@@ -25,6 +26,25 @@ export function Goals() {
     queryFn: () => goalsApi.list(selectedCompanyId!),
     enabled: !!selectedCompanyId,
   });
+
+  const { data: issues } = useQuery({
+    queryKey: queryKeys.issues.list(selectedCompanyId!),
+    queryFn: () => issuesApi.list(selectedCompanyId!),
+    enabled: !!selectedCompanyId,
+  });
+
+  const issuesByGoalId = useMemo(() => {
+    const map = new Map<string, { total: number; done: number }>();
+    for (const issue of issues ?? []) {
+      if (!issue.goalId) continue;
+      const existing = map.get(issue.goalId) ?? { total: 0, done: 0 };
+      map.set(issue.goalId, {
+        total: existing.total + 1,
+        done: existing.done + (issue.status === "done" ? 1 : 0),
+      });
+    }
+    return map;
+  }, [issues]);
 
   if (!selectedCompanyId) {
     return <EmptyState icon={Target} message="Select a company to view goals." />;
@@ -55,7 +75,11 @@ export function Goals() {
               New Goal
             </Button>
           </div>
-          <GoalTree goals={goals} goalLink={(goal) => `/goals/${goal.id}`} />
+          <GoalTree
+            goals={goals}
+            goalLink={(goal) => `/goals/${goal.id}`}
+            issuesByGoalId={issuesByGoalId}
+          />
         </>
       )}
     </div>

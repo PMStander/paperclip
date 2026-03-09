@@ -23,6 +23,7 @@ export const issues = pgTable(
     projectId: uuid("project_id").references(() => projects.id),
     goalId: uuid("goal_id").references(() => goals.id),
     parentId: uuid("parent_id").references((): AnyPgColumn => issues.id),
+    blockedByIssueId: uuid("blocked_by_issue_id").references((): AnyPgColumn => issues.id),
     title: text("title").notNull(),
     description: text("description"),
     status: text("status").notNull().default("backlog"),
@@ -62,5 +63,7 @@ export const issues = pgTable(
     parentIdx: index("issues_company_parent_idx").on(table.companyId, table.parentId),
     projectIdx: index("issues_company_project_idx").on(table.companyId, table.projectId),
     identifierIdx: uniqueIndex("issues_identifier_idx").on(table.identifier),
+    blockedByIdx: index("issues_blocked_by_idx").on(table.companyId, table.blockedByIssueId),
   }),
 );
+

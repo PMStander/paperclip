@@ -300,7 +300,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     if (resumeSessionId) args.push("--resume", resumeSessionId);
 
     // Accept prompt on stdin instead of args.
-    args.push("-");
+    args.push("--prompt", "-");
 
     return args;
   };

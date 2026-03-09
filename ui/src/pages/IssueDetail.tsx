@@ -30,6 +30,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ArtifactCanvas, type Artifact } from "../components/ArtifactCanvas";
 import {
   Activity as ActivityIcon,
   ChevronDown,
@@ -158,6 +159,7 @@ export function IssueDetail() {
     approvals: false,
     cost: false,
   });
+  const [activeArtifactId, setActiveArtifactId] = useState<string | undefined>();
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -331,6 +333,38 @@ export function IssueDetail() {
       return meta ? { ...comment, ...meta } : comment;
     });
   }, [activity, comments, linkedRuns]);
+
+  const artifacts = useMemo(() => {
+    const found: Record<string, Artifact> = {};
+    const sortedComments = [...(comments ?? [])].sort(
+      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    );
+
+    for (const comment of sortedComments) {
+      const regex = /```artifact:\s*([^\n\s]+)\s*\n([\s\S]*?)```/g;
+      let match;
+      while ((match = regex.exec(comment.body)) !== null) {
+        const filename = match[1].trim();
+        const content = match[2];
+        const typeMatch = filename.split(".").pop();
+        const type =
+          typeMatch === "md" ? "markdown" : 
+          filename.toLowerCase().includes("plan") ? "plan" :
+          filename.toLowerCase().includes("report") ? "report" : "code";
+
+        found[filename] = {
+          id: `${comment.id}-${filename}`,
+          filename,
+          content,
+          type: type as any,
+          commentId: comment.id,
+          authorName: comment.authorAgentId ? agentMap.get(comment.authorAgentId)?.name : "Board",
+          timestamp: relativeTime(comment.createdAt),
+        };
+      }
+    }
+    return Object.values(found).reverse(); // Latest first
+  }, [comments, agentMap]);
 
   const issueCostSummary = useMemo(() => {
     let input = 0;
@@ -517,7 +551,8 @@ export function IssueDetail() {
   const isImageAttachment = (attachment: IssueAttachment) => attachment.contentType.startsWith("image/");
 
   return (
-    <div className="max-w-2xl space-y-6">
+    <div className="flex gap-6">
+      <div className="flex-1 max-w-2xl space-y-6 min-w-0">
       {/* Parent chain breadcrumb */}
       {ancestors.length > 0 && (
         <nav className="flex items-center gap-1 text-xs text-muted-foreground flex-wrap">
@@ -840,6 +875,20 @@ export function IssueDetail() {
           )}
         </TabsContent>
       </Tabs>
+      </div>
+
+      {/* Side Canvas */}
+      {artifacts.length > 0 && (
+        <div className="hidden xl:block w-[450px] shrink-0 border-l border-border/50 -mt-6 -mb-6 bg-background">
+          <div className="sticky top-6 h-[calc(100vh-3rem)]">
+            <ArtifactCanvas
+              artifacts={artifacts}
+              activeArtifactId={activeArtifactId}
+              onSelectArtifact={setActiveArtifactId}
+            />
+          </div>
+        </div>
+      )}
 
       {linkedApprovals && linkedApprovals.length > 0 && (
         <Collapsible

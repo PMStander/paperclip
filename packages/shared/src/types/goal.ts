@@ -9,6 +9,9 @@ export interface Goal {
   status: GoalStatus;
   parentId: string | null;
   ownerAgentId: string | null;
+  coverImageId: string | null;
+  coverImageUrl: string | null;
+  projectIds: string[];
   createdAt: Date;
   updatedAt: Date;
 }

@@ -12,6 +12,7 @@ import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { queryKeys } from "../lib/queryKeys";
 import { ProjectProperties } from "../components/ProjectProperties";
+import { ProjectCanvasPanel } from "../components/ProjectCanvasPanel";
 import { InlineEditor } from "../components/InlineEditor";
 import { StatusBadge } from "../components/StatusBadge";
 import { IssuesList } from "../components/IssuesList";
@@ -35,16 +36,22 @@ function resolveProjectTab(pathname: string, projectId: string): ProjectTab | nu
 /* ── Overview tab content ── */
 
 function OverviewContent({
+  companyId,
+  projectId,
   project,
   onUpdate,
   imageUploadHandler,
 }: {
+  companyId: string;
+  projectId: string;
   project: { description: string | null; status: string; targetDate: string | null };
   onUpdate: (data: Record<string, unknown>) => void;
   imageUploadHandler?: (file: File) => Promise<string>;
 }) {
   return (
     <div className="space-y-6">
+      <ProjectCanvasPanel companyId={companyId} projectId={projectId} />
+
       <InlineEditor
         value={project.description ?? ""}
         onSave={(description) => onUpdate({ description })}
@@ -277,9 +284,9 @@ export function ProjectDetail() {
     return () => closePanel();
   }, [project]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Redirect bare /projects/:id to /projects/:id/issues
+  // Redirect bare /projects/:id to /projects/:id/overview
   if (routeProjectRef && activeTab === null) {
-    return <Navigate to={`/projects/${canonicalProjectRef}/issues`} replace />;
+    return <Navigate to={`/projects/${canonicalProjectRef}/overview`} replace />;
   }
 
   if (isLoading) return <PageSkeleton variant="detail" />;
@@ -338,6 +345,8 @@ export function ProjectDetail() {
       {/* Tab content */}
       {activeTab === "overview" && (
         <OverviewContent
+          companyId={resolvedCompanyId!}
+          projectId={project.id}
           project={project}
           onUpdate={(data) => updateProject.mutate(data)}
           imageUploadHandler={async (file) => {

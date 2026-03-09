@@ -29,6 +29,7 @@ import { BoardClaimPage } from "./pages/BoardClaim";
 import { InviteLandingPage } from "./pages/InviteLanding";
 import { CrmContacts } from "./pages/crm/CrmContacts";
 import { Solos } from "./pages/Solos";
+import { Experiments } from "./pages/Experiments";
 import { CrmCompanies } from "./pages/crm/CrmCompanies";
 import { CrmDeals } from "./pages/crm/CrmDeals";
 import { CrmInvoices } from "./pages/crm/CrmInvoices";
@@ -147,6 +148,7 @@ function boardRoutes() {
       <Route path="solos" element={<Navigate to="/solos/available" replace />} />
       <Route path="solos/available" element={<Solos />} />
       <Route path="solos/active" element={<Solos />} />
+      <Route path="experiments" element={<Experiments />} />
     </>
   );
 }
@@ -243,6 +245,7 @@ export function App() {
           <Route path="projects/:projectId/issues/:filter" element={<UnprefixedBoardRedirect />} />
           <Route path="crm/*" element={<UnprefixedBoardRedirect />} />
           <Route path="solos/*" element={<UnprefixedBoardRedirect />} />
+          <Route path="experiments" element={<UnprefixedBoardRedirect />} />
           <Route path=":companyPrefix" element={<Layout />}>
             {boardRoutes()}
           </Route>

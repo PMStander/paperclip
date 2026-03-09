@@ -21,8 +21,9 @@ export const AGENT_STATUSES = [
 ] as const;
 export type AgentStatus = (typeof AGENT_STATUSES)[number];
 
-export const AGENT_ADAPTER_TYPES = ["process", "http", "claude_local", "codex_local", "gemini_local", "opencode_local", "cursor", "openclaw"] as const;
+export const AGENT_ADAPTER_TYPES = ["process", "http", "claude_local", "codex_local", "gemini_local", "opencode_local", "droid_local", "cursor", "openclaw"] as const;
 export type AgentAdapterType = (typeof AGENT_ADAPTER_TYPES)[number];
+
 
 export const AGENT_ROLES = [
   "ceo",
@@ -135,7 +136,13 @@ export type CrmInvoiceStatus = (typeof CRM_INVOICE_STATUSES)[number];
 export const CRM_QUOTE_STATUSES = ["draft", "sent", "accepted", "rejected", "expired"] as const;
 export type CrmQuoteStatus = (typeof CRM_QUOTE_STATUSES)[number];
 
-export const APPROVAL_TYPES = ["hire_agent", "approve_ceo_strategy"] as const;
+export const APPROVAL_TYPES = [
+  "hire_agent",
+  "approve_ceo_strategy",
+  "promote_experiment_variant",
+  "apply_policy_rollout",
+  "promote_branch_experiment",
+] as const;
 export type ApprovalType = (typeof APPROVAL_TYPES)[number];
 
 export const APPROVAL_STATUSES = [
@@ -190,6 +197,71 @@ export const HEARTBEAT_RUN_STATUSES = [
   "timed_out",
 ] as const;
 export type HeartbeatRunStatus = (typeof HEARTBEAT_RUN_STATUSES)[number];
+
+export const SOLO_EXPERIMENT_TRIGGERS = ["manual", "schedule", "retry"] as const;
+export type SoloExperimentTrigger = (typeof SOLO_EXPERIMENT_TRIGGERS)[number];
+
+export const SOLO_EXPERIMENT_STATUSES = [
+  "queued",
+  "running",
+  "succeeded",
+  "failed",
+  "cancelled",
+  "timed_out",
+  "skipped",
+] as const;
+export type SoloExperimentStatus = (typeof SOLO_EXPERIMENT_STATUSES)[number];
+
+export const SOLO_EXPERIMENT_DECISIONS = ["pending", "baseline", "keep", "discard"] as const;
+export type SoloExperimentDecision = (typeof SOLO_EXPERIMENT_DECISIONS)[number];
+
+export const EXPERIMENT_CAMPAIGN_PHASES = ["shadow_replay", "population", "policy", "branch"] as const;
+export type ExperimentCampaignPhase = (typeof EXPERIMENT_CAMPAIGN_PHASES)[number];
+
+export const EXPERIMENT_SUBJECT_TYPES = ["company", "project", "agent", "solo_instance", "issue_schedule", "project_workspace"] as const;
+export type ExperimentSubjectType = (typeof EXPERIMENT_SUBJECT_TYPES)[number];
+
+export const EXPERIMENT_CAMPAIGN_STATUSES = ["draft", "active", "paused", "completed", "errored", "archived"] as const;
+export type ExperimentCampaignStatus = (typeof EXPERIMENT_CAMPAIGN_STATUSES)[number];
+
+export const EXPERIMENT_VARIANT_ROLES = ["baseline", "challenger"] as const;
+export type ExperimentVariantRole = (typeof EXPERIMENT_VARIANT_ROLES)[number];
+
+export const EXPERIMENT_VARIANT_STATUSES = ["draft", "active", "paused", "promoted", "retired"] as const;
+export type ExperimentVariantStatus = (typeof EXPERIMENT_VARIANT_STATUSES)[number];
+
+export const EVALUATION_SUITE_MODES = ["shadow", "live", "policy", "branch"] as const;
+export type EvaluationSuiteMode = (typeof EVALUATION_SUITE_MODES)[number];
+
+export const EVALUATION_SOURCE_TYPES = ["heartbeat_run", "issue", "schedule", "workspace"] as const;
+export type EvaluationSourceType = (typeof EVALUATION_SOURCE_TYPES)[number];
+
+export const EVALUATION_SUITE_STATUSES = ["draft", "active", "archived"] as const;
+export type EvaluationSuiteStatus = (typeof EVALUATION_SUITE_STATUSES)[number];
+
+export const EVALUATION_RUN_STATUSES = ["queued", "running", "succeeded", "failed", "cancelled", "skipped"] as const;
+export type EvaluationRunStatus = (typeof EVALUATION_RUN_STATUSES)[number];
+
+export const VARIANT_ASSIGNMENT_TYPES = ["solo_run", "issue_schedule", "issue", "heartbeat_run"] as const;
+export type VariantAssignmentType = (typeof VARIANT_ASSIGNMENT_TYPES)[number];
+
+export const VARIANT_ASSIGNMENT_STATUSES = ["assigned", "running", "succeeded", "failed", "cancelled", "skipped"] as const;
+export type VariantAssignmentStatus = (typeof VARIANT_ASSIGNMENT_STATUSES)[number];
+
+export const POLICY_TARGET_TYPES = ["company", "project", "solo_instance", "issue_schedule"] as const;
+export type PolicyTargetType = (typeof POLICY_TARGET_TYPES)[number];
+
+export const POLICY_PACK_STATUSES = ["draft", "active", "archived"] as const;
+export type PolicyPackStatus = (typeof POLICY_PACK_STATUSES)[number];
+
+export const POLICY_VERSION_STATUSES = ["draft", "pending_approval", "approved", "active", "rolled_back", "rejected"] as const;
+export type PolicyVersionStatus = (typeof POLICY_VERSION_STATUSES)[number];
+
+export const POLICY_ROLLOUT_STATUSES = ["draft", "pending_approval", "approved", "active", "rolled_back", "rejected"] as const;
+export type PolicyRolloutStatus = (typeof POLICY_ROLLOUT_STATUSES)[number];
+
+export const BRANCH_EXPERIMENT_STATUSES = ["draft", "pending_approval", "approved", "materialized", "verified", "promoted", "rejected", "archived"] as const;
+export type BranchExperimentStatus = (typeof BRANCH_EXPERIMENT_STATUSES)[number];
 
 export const LIVE_EVENT_TYPES = [
   "heartbeat.run.queued",

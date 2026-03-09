@@ -8,6 +8,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { agents } from "./agents.js";
 import { companies } from "./companies.js";
+import { assets } from "./assets.js";
 
 export const goals = pgTable(
   "goals",
@@ -20,6 +21,7 @@ export const goals = pgTable(
     status: text("status").notNull().default("planned"),
     parentId: uuid("parent_id").references((): AnyPgColumn => goals.id),
     ownerAgentId: uuid("owner_agent_id").references(() => agents.id),
+    coverImageId: uuid("cover_image_id").references(() => assets.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

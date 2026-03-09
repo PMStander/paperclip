@@ -70,5 +70,5 @@ export function projectRouteRef(project: { id: string; urlKey?: string | null; n
 
 /** Build a project URL using the short URL key when available. */
 export function projectUrl(project: { id: string; urlKey?: string | null; name?: string | null }): string {
-  return `/projects/${projectRouteRef(project)}`;
+  return `/projects/${projectRouteRef(project)}/overview`;
 }

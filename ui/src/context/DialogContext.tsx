@@ -35,6 +35,10 @@ interface DialogContextValue {
   onboardingOptions: OnboardingOptions;
   openOnboarding: (options?: OnboardingOptions) => void;
   closeOnboarding: () => void;
+  newScheduleOpen: boolean;
+  newScheduleDefaults: NewIssueDefaults;
+  openNewSchedule: (defaults?: NewIssueDefaults) => void;
+  closeNewSchedule: () => void;
 }
 
 const DialogContext = createContext<DialogContextValue | null>(null);
@@ -48,6 +52,8 @@ export function DialogProvider({ children }: { children: ReactNode }) {
   const [newAgentOpen, setNewAgentOpen] = useState(false);
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const [onboardingOptions, setOnboardingOptions] = useState<OnboardingOptions>({});
+  const [newScheduleOpen, setNewScheduleOpen] = useState(false);
+  const [newScheduleDefaults, setNewScheduleDefaults] = useState<NewIssueDefaults>({});
 
   const openNewIssue = useCallback((defaults: NewIssueDefaults = {}) => {
     setNewIssueDefaults(defaults);
@@ -95,6 +101,16 @@ export function DialogProvider({ children }: { children: ReactNode }) {
     setOnboardingOptions({});
   }, []);
 
+  const openNewSchedule = useCallback((defaults: NewIssueDefaults = {}) => {
+    setNewScheduleDefaults(defaults);
+    setNewScheduleOpen(true);
+  }, []);
+
+  const closeNewSchedule = useCallback(() => {
+    setNewScheduleOpen(false);
+    setNewScheduleDefaults({});
+  }, []);
+
   return (
     <DialogContext.Provider
       value={{
@@ -116,6 +132,10 @@ export function DialogProvider({ children }: { children: ReactNode }) {
         onboardingOptions,
         openOnboarding,
         closeOnboarding,
+        newScheduleOpen,
+        newScheduleDefaults,
+        openNewSchedule,
+        closeNewSchedule,
       }}
     >
       {children}

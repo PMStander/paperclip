@@ -72,4 +72,18 @@ export const queryKeys = {
     definition: (id: string) => ["solos", "definition", id] as const,
     instances: (companyId: string) => ["solos", "instances", companyId] as const,
   },
+  issueSchedules: {
+    list: (companyId: string) => ["issue-schedules", companyId] as const,
+    detail: (id: string) => ["issue-schedules", "detail", id] as const,
+  },
+  experiments: {
+    campaigns: (companyId: string, phase?: string) => ["experiments", "campaigns", companyId, phase ?? "all"] as const,
+    variants: (campaignId: string) => ["experiments", "variants", campaignId] as const,
+    suites: (campaignId: string) => ["experiments", "suites", campaignId] as const,
+    runs: (suiteId: string) => ["experiments", "runs", suiteId] as const,
+    assignments: (campaignId: string) => ["experiments", "assignments", campaignId] as const,
+    policyPacks: (companyId: string) => ["experiments", "policy-packs", companyId] as const,
+    policyPack: (policyPackId: string) => ["experiments", "policy-pack", policyPackId] as const,
+    branchExperiments: (companyId: string) => ["experiments", "branch-experiments", companyId] as const,
+  },
 };

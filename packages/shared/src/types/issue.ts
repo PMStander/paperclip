@@ -55,6 +55,7 @@ export interface Issue {
   projectId: string | null;
   goalId: string | null;
   parentId: string | null;
+  blockedByIssueId: string | null;
   ancestors?: IssueAncestor[];
   title: string;
   description: string | null;

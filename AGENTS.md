@@ -132,11 +132,99 @@ When adding endpoints:
 - Use company selection context for company-scoped pages
 - Surface failures clearly; do not silently ignore API errors
 
-## 10. Definition of Done
+## 11. CEO & Organizational Responsibilities
 
-A change is done when all are true:
+The CEO agent (or any manager-role agent) is responsible for the autonomous growth and structure of the company. The CEO runs the **strategic loop** on every heartbeat (see `skills/paperclip/SKILL.md` Steps 10–13 for API details).
 
-1. Behavior matches `doc/SPEC-implementation.md`
-2. Typecheck, tests, and build pass
-3. Contracts are synced across db/shared/server/ui
-4. Docs updated when behavior or commands change
+### Strategic Loop (Every Heartbeat)
+
+```
+1. Complete assigned tasks (Steps 1–9 in paperclip SKILL.md)
+2. GET all Goals → find ones with no issues or stalled progress
+3. For each gap:
+   a. Create Project(s) for the goal workstream
+   b. Break Project into Issues, assign to best-fit agents
+   c. If no suitable agent exists → initiate a hire
+4. Post a status artifact summarizing the company state
+```
+
+### Goal Breakdown Workflow
+
+When a high-level **Goal** is created:
+1. **Analyze**: Read goal description. Identify domains (engineering, marketing, ops, etc.)
+2. **Project Creation**: `POST /api/companies/:companyId/projects` per workstream
+3. **Issue Delegation**: Create Issues with concrete, actionable titles. Set `priority`, `assigneeAgentId`, `goalId`, `projectId`
+4. **Rule**: Every issue must have an assignee. Never create floating, unassigned work
+
+### Staffing Decision Tree
+
+```
+Does a suitable agent exist for this domain?
+  YES → delegate the issue to them
+  NO  → Is a hire already pending for this role?
+          YES → Wait; comment on the pending approval instead
+          NO  → Is budget utilization > 80%?
+                  YES → Do not hire; escalate to board with comment
+                  NO  → Submit hire via paperclip-create-agent skill
+```
+
+### Autonomous Hiring
+
+1. **Skill Search**: `GET /llms/agent-configuration.txt` to discover adapters
+2. **Compare Org**: `GET /api/companies/:companyId/agent-configurations` for existing patterns
+3. **Hire Request**: Use `paperclip-create-agent` skill — always set `sourceIssueId`
+4. **Notify Board**: Post comment on the approval with @board mention
+5. **Onboarding**: Once approved, create the first task for the new hire immediately
+
+### Budget Governance
+
+| Budget Utilization | Action |
+|---|---|
+| 0–79% | Normal operations, hire freely |
+| 80–99% | Focus on `critical` only; defer `low`/`medium` hires |
+| 100% | Auto-paused; escalate to board to increase budget |
+
+Check: `GET /api/agents/me` → `spentMonthlyCents / budgetMonthlyCents`
+
+## 12. Dynamic Artifacts (Canvas)
+
+Use the artifact block syntax for any structured output that should be pinned to the side Canvas.
+
+**Syntax:**
+\```artifact:filename.extension
+[Content]
+\```
+
+**Use cases:**
+- `plans/roadmap.md`: Top-level project plans
+- `reports/status.md`: Run summaries and company health
+- `reports/audit.md`: Post-mortems
+- `src/architecture.md`: Technical design docs
+- `data/findings.md`: Research results
+
+**Rules:**
+- Comment body = one-line summary only
+- Full content goes in the artifact block, not the comment prose
+- Artifact filenames are scoped per issue — same filename = overwrites previous version
+
+## 13. Skill Discovery and Reflection
+
+Agents should proactively search for tools and skills:
+- Index: `GET /llms/agent-configuration.txt`
+- Icons: `GET /llms/agent-icons.txt`
+- Specific Adapter: `GET /llms/agent-configuration/:type.txt`
+
+Always reference these endpoints when you are unsure how to configure a new agent or what capabilities are available.
+
+## 14. Issue Dependencies
+
+When your task is blocked waiting on another task, use the structured dependency field:
+
+```sh
+PATCH /api/issues/{issueId}
+{ "status": "blocked", "blockedByIssueId": "{issue-id}", "comment": "Blocked on [PAR-X]." }
+```
+
+This links the issues in the UI and makes the dependency explicit. Clear it when the blocker resolves: `"blockedByIssueId": null`
+
+## 15. Definition of Done

@@ -23,6 +23,8 @@ import { ADAPTER_ERROR_QUOTA_EXHAUSTED } from "@paperclipai/adapter-utils";
 import { createLocalAgentJwt } from "../agent-auth-jwt.js";
 import { parseObject, asBoolean, asNumber, appendWithCap, MAX_EXCERPT_BYTES } from "../adapters/utils.js";
 import { secretService } from "./secrets.js";
+import { experimentService } from "./experiments.js";
+import { soloExperimentService } from "./solo-experiments.js";
 import { resolveDefaultAgentWorkspaceDir } from "../home-paths.js";
 
 const MAX_LIVE_LOG_CHUNK_BYTES = 8 * 1024;
@@ -407,6 +409,24 @@ function resolveNextSessionState(input: {
 export function heartbeatService(db: Db) {
   const runLogStore = getRunLogStore();
   const secretsSvc = secretService(db);
+  const soloExperimentsSvc = soloExperimentService(db);
+  const experimentsSvc = experimentService(db);
+
+  async function syncSoloExperimentForRun(runId: string) {
+    try {
+      await soloExperimentsSvc.syncFromHeartbeatRun(runId);
+    } catch (err) {
+      logger.warn({ err, runId }, "failed to sync solo experiment from heartbeat run");
+    }
+  }
+
+  async function syncExperimentPlatformForRun(runId: string) {
+    try {
+      await experimentsSvc.syncFromHeartbeatRun(runId);
+    } catch (err) {
+      logger.warn({ err, runId }, "failed to sync experiment platform state from heartbeat run");
+    }
+  }
 
   async function getAgent(agentId: string) {
     return db
@@ -735,6 +755,9 @@ export function heartbeatService(db: Db) {
           finishedAt: updated.finishedAt ? new Date(updated.finishedAt).toISOString() : null,
         },
       });
+
+      await syncSoloExperimentForRun(updated.id);
+      await syncExperimentPlatformForRun(updated.id);
     }
 
     return updated;
@@ -846,6 +869,8 @@ export function heartbeatService(db: Db) {
     });
 
     await setWakeupStatus(claimed.wakeupRequestId, "claimed", { claimedAt });
+    await syncSoloExperimentForRun(claimed.id);
+    await syncExperimentPlatformForRun(claimed.id);
     return claimed;
   }
 

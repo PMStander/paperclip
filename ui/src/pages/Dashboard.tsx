@@ -19,8 +19,9 @@ import { ActivityRow } from "../components/ActivityRow";
 import { Identity } from "../components/Identity";
 import { timeAgo } from "../lib/timeAgo";
 import { cn, formatCents } from "../lib/utils";
-import { Bot, CircleDot, DollarSign, ShieldCheck, LayoutDashboard } from "lucide-react";
+import { Bot, CircleDot, DollarSign, ShieldCheck, LayoutDashboard, AlertTriangle, XCircle } from "lucide-react";
 import { ActiveAgentsPanel } from "../components/ActiveAgentsPanel";
+import { GoalsProgressPanel } from "../components/GoalsProgressPanel";
 import { ChartCard, RunActivityChart, PriorityChart, IssueStatusChart, SuccessRateChart } from "../components/ActivityCharts";
 import { PageSkeleton } from "../components/PageSkeleton";
 import type { Agent, Issue } from "@paperclipai/shared";
@@ -188,6 +189,23 @@ export function Dashboard() {
     <div className="space-y-6">
       {error && <p className="text-sm text-destructive">{error.message}</p>}
 
+      {data && data.agents.error > 0 && (
+        <Link
+          to="/agents/error"
+          className="flex items-center justify-between gap-3 rounded-xl border border-red-500/40 bg-linear-to-r from-red-500/10 via-card to-card px-4 py-3 no-underline text-inherit transition-colors hover:border-red-500/60"
+        >
+          <div className="flex items-center gap-2.5">
+            <XCircle className="h-4 w-4 text-red-500 shrink-0" />
+            <p className="text-sm font-medium text-foreground">
+              {data.agents.error} {data.agents.error === 1 ? "agent is" : "agents are"} in an error state — runs may be failing
+            </p>
+          </div>
+          <span className="text-xs font-medium text-red-500 shrink-0 underline underline-offset-2">
+            View agents →
+          </span>
+        </Link>
+      )}
+
       {hasNoAgents && (
         <div className="flex items-center justify-between gap-3 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 dark:border-amber-500/25 dark:bg-amber-950/60">
           <div className="flex items-center gap-2.5">
@@ -253,9 +271,10 @@ export function Dashboard() {
               value={data.pendingApprovals}
               label="Pending Approvals"
               to="/approvals"
+              className={data.pendingApprovals > 0 ? "ring-2 ring-amber-400/60 animate-pulse" : undefined}
               description={
                 <span>
-                  {data.staleTasks} stale tasks
+                  {data.pendingApprovals > 0 ? "⚠ Board review needed" : `${data.staleTasks} stale tasks`}
                 </span>
               }
             />
@@ -274,6 +293,14 @@ export function Dashboard() {
             <ChartCard title="Success Rate" subtitle="Last 14 days">
               <SuccessRateChart runs={runs ?? []} />
             </ChartCard>
+          </div>
+
+          {/* Goals Progress */}
+          <div>
+            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+              Goals Progress
+            </h3>
+            <GoalsProgressPanel companyId={selectedCompanyId!} />
           </div>
 
           <div className="grid md:grid-cols-2 gap-4">

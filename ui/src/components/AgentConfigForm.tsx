@@ -17,6 +17,7 @@ import {
 } from "@paperclipai/adapter-codex-local";
 import { DEFAULT_CURSOR_LOCAL_MODEL } from "@paperclipai/adapter-cursor-local";
 import { DEFAULT_OPENCODE_LOCAL_MODEL } from "@paperclipai/adapter-opencode-local";
+import { DEFAULT_DROID_LOCAL_MODEL } from "@paperclipai/adapter-droid-local";
 import {
   DEFAULT_GEMINI_LOCAL_BYPASS_APPROVALS_AND_SANDBOX,
   DEFAULT_GEMINI_LOCAL_MODEL,
@@ -280,6 +281,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
     adapterType === "codex_local" ||
     adapterType === "gemini_local" ||
     adapterType === "opencode_local" ||
+    adapterType === "droid_local" ||
     adapterType === "cursor";
   const uiAdapter = useMemo(() => getUIAdapter(adapterType), [adapterType]);
 
@@ -292,7 +294,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
 
   // Fetch adapter models for the fallback adapter type (edit mode only)
   const fallbackAdapterType = !isCreate
-    ? String(config.fallbackAdapterType ?? "")
+    ? eff("adapterConfig", "fallbackAdapterType", String(config.fallbackAdapterType ?? ""))
     : "";
   const { data: fallbackModels } = useQuery({
     queryKey: ["adapter-models", fallbackAdapterType],
@@ -341,6 +343,29 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
       }
       return agentsApi.testEnvironment(selectedCompanyId, adapterType, {
         adapterConfig: buildAdapterConfigForTest(),
+      });
+    },
+  });
+
+  const testFallbackEnvironment = useMutation({
+    mutationFn: async () => {
+      if (!selectedCompanyId) {
+        throw new Error("Select a company to test fallback adapter environment");
+      }
+      const fbType = eff("adapterConfig", "fallbackAdapterType", String(config.fallbackAdapterType ?? ""));
+      if (!fbType) {
+        throw new Error("Select a fallback adapter type first");
+      }
+      const fbConfig = eff(
+        "adapterConfig",
+        "fallbackAdapterConfig",
+        (config.fallbackAdapterConfig ?? {}) as Record<string, unknown>,
+      );
+      const resolvedConfig = typeof fbConfig === "object" && fbConfig !== null
+        ? fbConfig as Record<string, unknown>
+        : {};
+      return agentsApi.testEnvironment(selectedCompanyId, fbType, {
+        adapterConfig: resolvedConfig,
       });
     },
   });
@@ -500,6 +525,8 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
                     nextValues.model = DEFAULT_CURSOR_LOCAL_MODEL;
                   } else if (t === "opencode_local") {
                     nextValues.model = DEFAULT_OPENCODE_LOCAL_MODEL;
+                  } else if (t === "droid_local") {
+                    nextValues.model = DEFAULT_DROID_LOCAL_MODEL;
                   }
                   if (t === "gemini_local") {
                     nextValues.model = DEFAULT_GEMINI_LOCAL_MODEL;
@@ -521,6 +548,8 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
                             ? DEFAULT_CURSOR_LOCAL_MODEL
                           : t === "opencode_local"
                             ? DEFAULT_OPENCODE_LOCAL_MODEL
+                          : t === "droid_local"
+                            ? DEFAULT_DROID_LOCAL_MODEL
                           : t === "gemini_local"
                             ? DEFAULT_GEMINI_LOCAL_MODEL
                             : "",
@@ -635,6 +664,8 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
                         ? "agent"
                       : adapterType === "opencode_local"
                         ? "opencode"
+                      : adapterType === "droid_local"
+                        ? "droid"
                       : adapterType === "gemini_local"
                         ? "gemini"
                         : "claude"
@@ -915,6 +946,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
                 fbType === "codex_local" ? "codex"
                 : fbType === "cursor" ? "agent"
                 : fbType === "opencode_local" ? "opencode"
+                : fbType === "droid_local" ? "droid"
                 : fbType === "gemini_local" ? "gemini"
                 : "claude";
 
@@ -947,6 +979,31 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
                       setFbField("dangerouslyBypassApprovalsAndSandbox", v || undefined);
                     }}
                   />
+
+                  <div className="pt-2 space-y-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2.5 text-xs"
+                      onClick={() => testFallbackEnvironment.mutate()}
+                      disabled={testFallbackEnvironment.isPending || !selectedCompanyId}
+                    >
+                      {testFallbackEnvironment.isPending ? "Testing..." : "Test fallback"}
+                    </Button>
+
+                    {testFallbackEnvironment.error && (
+                      <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                        {testFallbackEnvironment.error instanceof Error
+                          ? testFallbackEnvironment.error.message
+                          : "Fallback environment test failed"}
+                      </div>
+                    )}
+
+                    {testFallbackEnvironment.data && (
+                      <AdapterEnvironmentResult result={testFallbackEnvironment.data} />
+                    )}
+                  </div>
                 </>
               );
             })()}
@@ -995,7 +1052,7 @@ function AdapterEnvironmentResult({ result }: { result: AdapterEnvironmentTestRe
 
 /* ---- Internal sub-components ---- */
 
-const ENABLED_ADAPTER_TYPES = new Set(["claude_local", "codex_local", "gemini_local", "opencode_local", "cursor"]);
+const ENABLED_ADAPTER_TYPES = new Set(["claude_local", "codex_local", "gemini_local", "opencode_local", "droid_local", "cursor"]);
 
 /** Display list includes all real adapter types plus UI-only coming-soon entries. */
 const ADAPTER_DISPLAY_LIST: { value: string; label: string; comingSoon: boolean }[] = [
@@ -1312,8 +1369,11 @@ function ModelDropdown({
 }) {
   const [modelSearch, setModelSearch] = useState("");
   const selected = models.find((m) => m.id === value);
+  const isSearching = modelSearch.trim().length > 0;
   const filteredModels = models.filter((m) => {
-    if (!modelSearch.trim()) return true;
+    // Always hide separator entries when searching
+    if (isSearching && m.id.startsWith("──")) return false;
+    if (!isSearching) return true;
     const q = modelSearch.toLowerCase();
     return m.id.toLowerCase().includes(q) || m.label.toLowerCase().includes(q);
   });
@@ -1356,7 +1416,23 @@ function ModelDropdown({
             >
               Default
             </button>
-            {filteredModels.map((m) => (
+            {filteredModels.map((m) => {
+              // Render separator entries as non-clickable section headers
+              if (m.id.startsWith("──")) {
+                return (
+                  <div
+                    key={m.id}
+                    className="px-2 pt-2 pb-1 flex items-center gap-2 select-none"
+                  >
+                    <div className="flex-1 border-t border-border" />
+                    <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                      Custom
+                    </span>
+                    <div className="flex-1 border-t border-border" />
+                  </div>
+                );
+              }
+              return (
               <button
                 key={m.id}
                 className={cn(
@@ -1371,7 +1447,9 @@ function ModelDropdown({
                 <span>{m.label}</span>
                 <span className="text-xs text-muted-foreground font-mono">{m.id}</span>
               </button>
-            ))}
+              );
+            })}
+
             {filteredModels.length === 0 && (
               <p className="px-2 py-1.5 text-xs text-muted-foreground">No models found.</p>
             )}

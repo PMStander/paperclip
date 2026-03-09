@@ -5,10 +5,11 @@ import type { Goal } from "@paperclipai/shared";
 import { GOAL_STATUSES, GOAL_LEVELS } from "@paperclipai/shared";
 import { agentsApi } from "../api/agents";
 import { goalsApi } from "../api/goals";
+import { projectsApi } from "../api/projects";
 import { useCompany } from "../context/CompanyContext";
 import { queryKeys } from "../lib/queryKeys";
 import { StatusBadge } from "./StatusBadge";
-import { formatDate, cn, agentUrl } from "../lib/utils";
+import { formatDate, cn, agentUrl, projectUrl } from "../lib/utils";
 import { Separator } from "@/components/ui/separator";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
@@ -85,6 +86,14 @@ export function GoalProperties({ goal, onUpdate }: GoalPropertiesProps) {
     enabled: !!selectedCompanyId,
   });
 
+  const { data: allProjects } = useQuery({
+    queryKey: queryKeys.projects.list(selectedCompanyId!),
+    queryFn: () => projectsApi.list(selectedCompanyId!),
+    enabled: !!selectedCompanyId,
+  });
+
+  const linkedProjects = (allProjects ?? []).filter((p) => (goal.projectIds ?? []).includes(p.id));
+
   const ownerAgent = goal.ownerAgentId
     ? agents?.find((a) => a.id === goal.ownerAgentId)
     : null;
@@ -145,6 +154,36 @@ export function GoalProperties({ goal, onUpdate }: GoalPropertiesProps) {
             >
               {parentGoal?.title ?? goal.parentId.slice(0, 8)}
             </Link>
+          </PropertyRow>
+        )}
+
+        {/* Linked Projects */}
+        {linkedProjects.length > 0 && (
+          <PropertyRow label="Projects">
+            <div className="flex flex-col gap-0.5">
+              {linkedProjects.map((p) => (
+                <Link
+                  key={p.id}
+                  to={projectUrl(p)}
+                  className="text-sm hover:underline truncate"
+                >
+                  {p.name}
+                </Link>
+              ))}
+            </div>
+          </PropertyRow>
+        )}
+
+        {/* Cover image */}
+        {goal.coverImageUrl && (
+          <PropertyRow label="Cover">
+            <a href={goal.coverImageUrl} target="_blank" rel="noopener noreferrer" className="block">
+              <img
+                src={goal.coverImageUrl}
+                alt="Cover"
+                className="h-16 w-full object-cover rounded border border-border"
+              />
+            </a>
           </PropertyRow>
         )}
       </div>

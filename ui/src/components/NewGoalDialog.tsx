@@ -4,6 +4,7 @@ import { GOAL_STATUSES, GOAL_LEVELS } from "@paperclipai/shared";
 import { useDialog } from "../context/DialogContext";
 import { useCompany } from "../context/CompanyContext";
 import { goalsApi } from "../api/goals";
+import { projectsApi } from "../api/projects";
 import { assetsApi } from "../api/assets";
 import { queryKeys } from "../lib/queryKeys";
 import {
@@ -21,6 +22,10 @@ import {
   Minimize2,
   Target,
   Layers,
+  Hexagon,
+  Image,
+  X,
+  Check,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { MarkdownEditor, type MarkdownEditorRef } from "./MarkdownEditor";
@@ -42,11 +47,17 @@ export function NewGoalDialog() {
   const [status, setStatus] = useState("planned");
   const [level, setLevel] = useState("task");
   const [parentId, setParentId] = useState("");
+  const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
+  const [coverImageId, setCoverImageId] = useState<string | null>(null);
+  const [coverImagePreview, setCoverImagePreview] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
+  const coverInputRef = useRef<HTMLInputElement>(null);
 
   const [statusOpen, setStatusOpen] = useState(false);
   const [levelOpen, setLevelOpen] = useState(false);
   const [parentOpen, setParentOpen] = useState(false);
+  const [projectOpen, setProjectOpen] = useState(false);
+  const [projectSearch, setProjectSearch] = useState("");
   const descriptionEditorRef = useRef<MarkdownEditorRef>(null);
 
   // Apply defaults when dialog opens
@@ -55,6 +66,12 @@ export function NewGoalDialog() {
   const { data: goals } = useQuery({
     queryKey: queryKeys.goals.list(selectedCompanyId!),
     queryFn: () => goalsApi.list(selectedCompanyId!),
+    enabled: !!selectedCompanyId && newGoalOpen,
+  });
+
+  const { data: projects } = useQuery({
+    queryKey: queryKeys.projects.list(selectedCompanyId!),
+    queryFn: () => projectsApi.list(selectedCompanyId!),
     enabled: !!selectedCompanyId && newGoalOpen,
   });
 
@@ -81,6 +98,9 @@ export function NewGoalDialog() {
     setStatus("planned");
     setLevel("task");
     setParentId("");
+    setSelectedProjectIds([]);
+    setCoverImageId(null);
+    setCoverImagePreview(null);
     setExpanded(false);
   }
 
@@ -91,6 +111,8 @@ export function NewGoalDialog() {
       description: description.trim() || undefined,
       status,
       level,
+      projectIds: selectedProjectIds,
+      ...(coverImageId ? { coverImageId } : {}),
       ...(appliedParentId ? { parentId: appliedParentId } : {}),
     });
   }
@@ -231,6 +253,90 @@ export function NewGoalDialog() {
               ))}
             </PopoverContent>
           </Popover>
+
+          {/* Projects */}
+          <Popover open={projectOpen} onOpenChange={(open) => { setProjectOpen(open); if (!open) setProjectSearch(""); }}>
+            <PopoverTrigger asChild>
+              <button className="inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-xs hover:bg-accent/50 transition-colors">
+                <Hexagon className="h-3 w-3 text-muted-foreground" />
+                {selectedProjectIds.length === 0
+                  ? "Projects"
+                  : selectedProjectIds.length === 1
+                    ? (projects ?? []).find((p) => p.id === selectedProjectIds[0])?.name ?? "1 project"
+                    : `${selectedProjectIds.length} projects`}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-52 p-1" align="start">
+              <input
+                className="w-full px-2 py-1 text-xs bg-transparent outline-none border-b border-border mb-1 placeholder:text-muted-foreground/50"
+                placeholder="Search projects…"
+                value={projectSearch}
+                onChange={(e) => setProjectSearch(e.target.value)}
+                autoFocus
+              />
+              <div className="max-h-48 overflow-y-auto">
+                {(projects ?? [])
+                  .filter((p) => !projectSearch.trim() || p.name.toLowerCase().includes(projectSearch.toLowerCase()))
+                  .map((p) => {
+                    const selected = selectedProjectIds.includes(p.id);
+                    return (
+                      <button
+                        key={p.id}
+                        className={cn(
+                          "flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50 text-left",
+                          selected && "bg-accent",
+                        )}
+                        onClick={() =>
+                          setSelectedProjectIds((prev) =>
+                            selected ? prev.filter((id) => id !== p.id) : [...prev, p.id]
+                          )
+                        }
+                      >
+                        {selected && <Check className="h-3 w-3 shrink-0" />}
+                        <span className="truncate">{p.name}</span>
+                      </button>
+                    );
+                  })}
+                {(projects ?? []).length === 0 && (
+                  <p className="px-2 py-2 text-xs text-muted-foreground">No projects yet.</p>
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
+
+          {/* Cover image */}
+          <>
+            <input
+              ref={coverInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file || !selectedCompanyId) return;
+                const preview = URL.createObjectURL(file);
+                setCoverImagePreview(preview);
+                const asset = await uploadDescriptionImage.mutateAsync(file);
+                setCoverImageId(asset.assetId);
+              }}
+            />
+            <button
+              className="inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-xs hover:bg-accent/50 transition-colors"
+              onClick={() => coverInputRef.current?.click()}
+            >
+              <Image className="h-3 w-3 text-muted-foreground" />
+              {coverImagePreview ? "Change cover" : "Cover image"}
+            </button>
+            {coverImagePreview && (
+              <button
+                className="inline-flex items-center gap-1 rounded-md border border-border px-1.5 py-1 text-xs text-destructive hover:bg-destructive/10 transition-colors"
+                title="Remove cover"
+                onClick={() => { setCoverImageId(null); setCoverImagePreview(null); }}
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
+          </>
 
           {/* Parent goal */}
           <Popover open={parentOpen} onOpenChange={setParentOpen}>
